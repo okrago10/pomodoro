@@ -3,13 +3,30 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check"
   },
+  "dependencies": {
+    "@heroui/react": "3.2.4",
+    "@heroui/styles": "3.2.4",
+    "effect": "3.22.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
   "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@vitejs/plugin-react": "6.0.5",
     "oxfmt": "0.62.0",
-    "oxlint": "1.77.0"
+    "oxlint": "1.77.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2",
+    "vite": "8.2.1"
   }
 }

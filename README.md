@@ -12,6 +12,20 @@ iPhone 16 の Safari 向けポモドーロタイマー。GitHub Pages で公開�
 - ユーザー判断が必要なら着手せず報告する
 - 報告に気づかずオートメーションが再実行されても 2 回まで。3 回目は停止
 
+## ローカル起動
+
+```bash
+npm install
+npm run dev
+```
+
+開発サーバは `http://localhost:5173/pomodoro/` を開く（`vite.config.ts` の `base` が GitHub Pages のプロジェクトサイト向け `/pomodoro/` のため）。
+
+```bash
+npm run build
+npm run preview
+```
+
 ## 開発コマンド
 
 ```bash
