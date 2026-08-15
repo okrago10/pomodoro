@@ -54,6 +54,10 @@ describe("timer engine", () => {
     expect(snap.position.phase._tag).toBe("ShortBreak");
     expect(snap.status).toBe("running");
     expect(snap.remainingMs).toBe(5 * MINUTE);
+    const transitions = engine.takeTransitions();
+    expect(transitions).toHaveLength(1);
+    expect(transitions[0]?.from.phase._tag).toBe("Work");
+    expect(transitions[0]?.to.phase._tag).toBe("ShortBreak");
   });
 
   it("then auto-starts the second work, then a 15-minute long break", () => {
@@ -85,5 +89,16 @@ describe("timer engine", () => {
     expect(snap.position.phase._tag).toBe("ShortBreak");
     expect(snap.remainingMs).toBe(5 * MINUTE - 90 * SECOND);
     expect(phaseDurationMs(snap.position)).toBe(5 * MINUTE);
+  });
+
+  it("reports each skipped phase when the clock jumps past more than one", () => {
+    const clock = new FakeClock();
+    const engine = createTimerEngine(clock);
+    engine.start();
+    clock.advance(25 * MINUTE + 5 * MINUTE);
+    engine.tick();
+    const transitions = engine.takeTransitions();
+    expect(transitions.map((item) => item.to.phase._tag)).toEqual(["ShortBreak", "Work"]);
+    expect(engine.takeTransitions()).toEqual([]);
   });
 });

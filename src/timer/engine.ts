@@ -15,6 +15,11 @@ export interface TimerSnapshot {
   readonly status: TimerStatus;
 }
 
+export interface PhaseTransition {
+  readonly from: CyclePosition;
+  readonly to: CyclePosition;
+}
+
 export function phaseDurationMs(position: CyclePosition): number {
   return phaseDurationMinutes(position.phase) * 60_000;
 }
@@ -24,6 +29,7 @@ export function createTimerEngine(clock: Clock) {
   let status: TimerStatus = "idle";
   let deadlineMs: number | null = null;
   let remainingMs = phaseDurationMs(position);
+  let pendingTransitions: PhaseTransition[] = [];
 
   function snapshot(): TimerSnapshot {
     if (status === "running" && deadlineMs !== null) {
@@ -63,7 +69,9 @@ export function createTimerEngine(clock: Clock) {
     const now = clock.now();
     let nextDeadline: number = deadlineMs;
     while (now >= nextDeadline) {
+      const from = position;
       position = Effect.runSync(nextPhase(position));
+      pendingTransitions.push({ from, to: position });
       nextDeadline += phaseDurationMs(position);
     }
     deadlineMs = nextDeadline;
@@ -71,7 +79,17 @@ export function createTimerEngine(clock: Clock) {
     return snapshot();
   }
 
-  return { snapshot, start, pause, tick };
+  function takeTransitions(): readonly PhaseTransition[] {
+    const transitions = pendingTransitions;
+    pendingTransitions = [];
+    return transitions;
+  }
+
+  function runningDeadlineMs(): number | null {
+    return status === "running" ? deadlineMs : null;
+  }
+
+  return { snapshot, start, pause, tick, takeTransitions, runningDeadlineMs };
 }
 
 export type TimerEngine = ReturnType<typeof createTimerEngine>;

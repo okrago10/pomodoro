@@ -26,6 +26,9 @@ export function App() {
       <p className="font-mono text-5xl tabular-nums" aria-live="polite">
         {formatRemaining(remainingMs)}
       </p>
+      <p className="text-center text-sm opacity-70">
+        フェーズ終了を知らせるため、初回の開始時に通知の許可を求めます。
+      </p>
       <div className="flex gap-3">
         <Button isDisabled={running} onPress={start}>
           開始

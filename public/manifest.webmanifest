@@ -1,0 +1,9 @@
+{
+  "name": "pomodoro",
+  "short_name": "pomodoro",
+  "start_url": "/pomodoro/",
+  "scope": "/pomodoro/",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#fafafa"
+}
