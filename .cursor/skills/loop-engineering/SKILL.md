@@ -108,6 +108,8 @@ PR 本文に必ず含める:
 - `Closes #N`（その issue を完了にするとき）
 - `BACKLOG.md` の該当行を `[x]` にしたこと
 
+PR は **最初から open（Ready for review）で作る**。Draft にはしない。`create_pr` では `draft: false` を明示する。このリポジトリでは今後も同様。
+
 PR 作成後、**この実行は終了**する。マージはユーザーまたは既存の automerge に任せる。
 
 ## 5. 技術リトライ（最大 2 回）

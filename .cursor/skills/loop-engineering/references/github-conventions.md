@@ -8,6 +8,10 @@
 | `[loop-halt]` | オートメーション停止中 | 実装禁止。報告のみ |
 | `[進捗]` | バックログ全体 | 実装対象にしない |
 
+## Pull Request
+
+このリポジトリの PR は **最初から open（Ready for review）** で作る。Draft 禁止。Create 時は `draft: false` を明示する。
+
 検索例:
 
 ```bash
