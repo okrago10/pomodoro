@@ -1,0 +1,19 @@
+---
+description: oxlint と oxfmt の使い方。JS/TS の編集、lint、format、ESLint/Prettier の話が出たときに使う。
+alwaysApply: false
+---
+
+# リンタとフォーマッタ
+
+このリポジトリのリンタは **oxlint**、フォーマッタは **oxfmt**。ESLint / Prettier は入れない。
+
+```bash
+npm run lint
+npm run lint:fix
+npm run fmt
+npm run fmt:check
+```
+
+JS/TS を追加・変更した PR では、出す前に `npm run lint` と `npm run fmt:check` を通す。設定は `.oxlintrc.json` と `.oxfmtrc.json`。
+
+依存のバージョンは always-apply の npm 7 日ルールに従う。

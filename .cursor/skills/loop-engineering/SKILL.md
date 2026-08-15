@@ -47,11 +47,11 @@ python3 .cursor/skills/loop-engineering/scripts/unaddressed_reviews.py
 
 オープンな `[loop-report]` issue を数える（タイトル接頭辞で検索）。
 
-| オープン数 | この実行 |
-| --- | --- |
-| 0 | 通常どおり進む |
-| 1 | **2回目まで許容。** ユーザー判断待ちなら実装しない。技術失敗の再実行なら、同じ issue をもう一度だけ試みる |
-| 2 以上 | **3回目。** 実装しない。§7 でオートメーションを止める |
+| オープン数 | この実行                                                                                                  |
+| ---------- | --------------------------------------------------------------------------------------------------------- |
+| 0          | 通常どおり進む                                                                                            |
+| 1          | **2回目まで許容。** ユーザー判断待ちなら実装しない。技術失敗の再実行なら、同じ issue をもう一度だけ試みる |
+| 2 以上     | **3回目。** 実装しない。§7 でオートメーションを止める                                                     |
 
 「ユーザーが報告に気づかず次のオートメーションが走った」状態は、未 close の `[loop-report]` が残っていることで検出する。
 
@@ -113,7 +113,9 @@ python3 .cursor/skills/loop-engineering/scripts/unaddressed_reviews.py
 - default branch から `feature/<short-kebab>-<短いランダム>` を切る。接尾辞は実行ごとに変える（例: `openssl rand -hex 2`）。**特定の PR の接尾辞を固定で使い回さない**
 - 実行環境がブランチ名のパターンを別途指定しているときだけ、その指定を優先する
 - スコープ外のリファクタや依存追加をしない
-- 確定スタック: React + TypeScript + Vite + Tailwind CSS v4 + HeroUI React v3 + Effect。デプロイは GitHub Pages。サーバ・Expo・HeroUI Native は使わない
+- 確定スタック: React + TypeScript + Vite + Tailwind CSS v4 + HeroUI React v3 + Effect。リンタは oxlint、フォーマッタは oxfmt。デプロイは GitHub Pages。サーバ・Expo・HeroUI Native は使わない
+- 依存の追加・更新は `.cursor/rules/npm-package-age.mdc`（リリースから 7 日以上経った安定版の最新。exact pin）。`node scripts/npm-stable-version.mjs <pkg>` で版を決める
+- JS/TS を触ったら PR 前に `npm run lint` と `npm run fmt:check` を通す
 - サイクルの正は issue #3（未実装なら #3 の本文）: `作業25 → 短い休憩5 → 作業25 → 長い休憩15`、終了で自動遷移
 - 一時的な失敗は §5 のとおり最大 2 回リトライ
 
@@ -135,6 +137,7 @@ PR 本文に必ず含める:
 - 動作確認のスクショまたは動画
 - `Closes #N`（その issue を完了にするとき）
 - `BACKLOG.md` の該当行を `[x]` にしたこと
+- `npm run lint` と `npm run fmt:check` の結果（JS/TS を触ったとき）
 
 PR は **最初から open（Ready for review）で作る**。Draft にはしない。`create_pr` では `draft: false` を明示する。このリポジトリでは今後も同様。
 
@@ -206,3 +209,4 @@ PR は **最初から open（Ready for review）で作る**。Draft にはしな
 - PR を Draft で作る（このリポジトリは常に open）
 - `gh` 失敗時に issue 0 件とみなして進行する
 - ブランチ接尾辞を過去の PR の固定文字列でハードコードする
+- リリースから 7 日未満の npm パッケージを入れる（`.cursor/rules/npm-package-age.mdc`）
