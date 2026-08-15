@@ -12,6 +12,8 @@
 
 PR は **最初から open（Ready for review）** で作る。Draft 禁止。Create 時は `draft: false` を明示する。
 
+未マージ PR が残っていても次の issue 用 PR を出してよい。依存するなら親 PR の head を base にしたスタック、独立なら default branch を base にする。
+
 open にしたあと `## コードレビュー結果` / `## セキュリティレビュー結果` が付く。対応手順は `references/pr-review.md`。
 
 検索例:
