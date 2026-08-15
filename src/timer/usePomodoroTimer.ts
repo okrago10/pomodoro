@@ -1,29 +1,29 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { systemClock } from "./clock.ts";
 import { createTimerEngine, type TimerSnapshot } from "./engine.ts";
 
 const TICK_MS = 250;
 
 export function usePomodoroTimer() {
-  const engineRef = useRef(createTimerEngine(systemClock));
-  const [snapshot, setSnapshot] = useState<TimerSnapshot>(() => engineRef.current.snapshot());
+  const [engine] = useState(() => createTimerEngine(systemClock));
+  const [snapshot, setSnapshot] = useState<TimerSnapshot>(() => engine.snapshot());
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      setSnapshot(engineRef.current.tick());
+      setSnapshot(engine.tick());
     }, TICK_MS);
     return () => {
       window.clearInterval(id);
     };
-  }, []);
+  }, [engine]);
 
   const start = useCallback(() => {
-    setSnapshot(engineRef.current.start());
-  }, []);
+    setSnapshot(engine.start());
+  }, [engine]);
 
   const pause = useCallback(() => {
-    setSnapshot(engineRef.current.pause());
-  }, []);
+    setSnapshot(engine.pause());
+  }, [engine]);
 
   return { ...snapshot, start, pause };
 }
