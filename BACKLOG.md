@@ -13,7 +13,7 @@
 - [x] ~~#2 Expo / Native 初期構築~~（キャンセル。GitHub Pages のため使わない）
 - [x] [#14](https://github.com/okrago10/pomodoro/issues/14) ループエンジニアリング用 Cursor Skill
 - [x] [#16](https://github.com/okrago10/pomodoro/issues/16) oxlint / oxfmt と依存パッケージの 7 日ルール
-- [ ] [#11](https://github.com/okrago10/pomodoro/issues/11) 【#2代替】Vite + HeroUI React v3 初期構築
+- [x] [#11](https://github.com/okrago10/pomodoro/issues/11) 【#2代替】Vite + HeroUI React v3 初期構築
 - [ ] [#12](https://github.com/okrago10/pomodoro/issues/12) GitHub Pages で静的デプロイ
 - [ ] [#3](https://github.com/okrago10/pomodoro/issues/3) ポモドーロサイクルのドメインモデル（Effect）
 - [ ] [#4](https://github.com/okrago10/pomodoro/issues/4) タイマー実行とフェーズ自動遷移
