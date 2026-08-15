@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
+import { localCalendar } from "./calendar.ts";
 import { systemClock } from "./clock.ts";
+import { createLocalStorageDailyWorkStore } from "./dailyWorkStore.ts";
 import { createTimerEngine, type TimerSnapshot } from "./engine.ts";
 
 const TICK_MS = 250;
 
 export function usePomodoroTimer() {
-  const [engine] = useState(() => createTimerEngine(systemClock));
+  const [engine] = useState(() =>
+    createTimerEngine(
+      systemClock,
+      localCalendar,
+      createLocalStorageDailyWorkStore(window.localStorage),
+    ),
+  );
   const [snapshot, setSnapshot] = useState<TimerSnapshot>(() => engine.snapshot());
 
   useEffect(() => {

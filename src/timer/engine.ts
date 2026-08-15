@@ -8,6 +8,7 @@ import {
 } from "../domain/cycle.ts";
 import { localCalendar, type Calendar } from "./calendar.ts";
 import type { Clock } from "./clock.ts";
+import { createMemoryDailyWorkStore, type DailyWorkStore } from "./dailyWorkStore.ts";
 
 export type TimerStatus = "idle" | "running" | "paused";
 
@@ -22,13 +23,25 @@ export function phaseDurationMs(position: CyclePosition): number {
   return phaseDurationMinutes(position.phase) * 60_000;
 }
 
-export function createTimerEngine(clock: Clock, calendar: Calendar = localCalendar) {
+function storedTotal(store: DailyWorkStore, dayKey: string): number {
+  try {
+    const value = store.get(dayKey);
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function createTimerEngine(
+  clock: Clock,
+  calendar: Calendar = localCalendar,
+  store: DailyWorkStore = createMemoryDailyWorkStore(),
+) {
   let position: CyclePosition = initialCyclePosition;
   let status: TimerStatus = "idle";
   let deadlineMs: number | null = null;
   let remainingMs = phaseDurationMs(position);
-  let todayKey = calendar.dayKey(clock.now());
-  let todayWorkMs = 0;
+  let todayWorkMs = storedTotal(store, calendar.dayKey(clock.now()));
   let cursorMs = clock.now();
 
   function applyElapsed(from: number, to: number, work: boolean): void {
@@ -39,23 +52,19 @@ export function createTimerEngine(clock: Clock, calendar: Calendar = localCalend
     while (start < to) {
       const sliceEnd = Math.min(to, calendar.startOfNextDay(start));
       const key = calendar.dayKey(start);
-      if (key !== todayKey) {
-        todayKey = key;
-        todayWorkMs = 0;
-      }
       if (work) {
-        todayWorkMs += sliceEnd - start;
+        try {
+          store.add(key, sliceEnd - start);
+        } catch {
+          // Persistence failures must not stop the timer.
+        }
       }
       start = sliceEnd;
     }
   }
 
   function rollover(now: number): void {
-    const key = calendar.dayKey(now);
-    if (key !== todayKey) {
-      todayKey = key;
-      todayWorkMs = 0;
-    }
+    todayWorkMs = storedTotal(store, calendar.dayKey(now));
   }
 
   function snapshot(): TimerSnapshot {
@@ -65,12 +74,8 @@ export function createTimerEngine(clock: Clock, calendar: Calendar = localCalend
       applyElapsed(cursorMs, until, isWorkPhase(position.phase));
       cursorMs = until;
       remainingMs = Math.max(0, deadlineMs - now);
-      if (now > deadlineMs) {
-        rollover(now);
-      }
-    } else {
-      rollover(now);
     }
+    rollover(now);
     return { position, remainingMs, status, todayWorkMs };
   }
 
@@ -138,6 +143,7 @@ export function createTimerEngine(clock: Clock, calendar: Calendar = localCalend
     cursorMs = now;
     deadlineMs = nextDeadline;
     remainingMs = Math.max(0, nextDeadline - now);
+    rollover(now);
     return { position, remainingMs, status, todayWorkMs };
   }
 
