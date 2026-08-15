@@ -2,7 +2,7 @@
 
 進捗の正（GitHub）: [#13](https://github.com/okrago10/pomodoro/issues/13)  
 ループスキル: `.cursor/skills/loop-engineering/SKILL.md`  
-1 ループ = 未完了の先頭を 1 つ実装して PR まで。
+1 ループ = 未完了の先頭を 1 つ実装して PR まで（未マージ PR があっても、依存ならそのブランチから、独立なら main から進む）。
 
 確定技術: Vite + React + TypeScript + Tailwind CSS v4 + HeroUI React v3 + Effect。リンタ oxlint、フォーマッタ oxfmt。公開は GitHub Pages。サーバなし。依存はリリースから 7 日以上経った安定版の最新。
 
@@ -26,5 +26,7 @@
 ## 運用
 
 - 次に着手するのは上の未チェック先頭。
+- 未マージ PR があっても次へ進む。依存するならその PR ブランチから、独立なら `main` からブランチを切る。
+- 未対応の自動レビュー指摘（Major/Minor）がある実行は、指摘対応を先にする。
 - PR がマージされたら該当行を `[x]` にする（ループスキルが次実行の冒頭でも同期する）。
 - ユーザー判断待ちは `[loop-report]` issue。未回答が 3 回目になったら `[loop-halt]` で止める。
