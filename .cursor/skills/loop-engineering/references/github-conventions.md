@@ -10,7 +10,9 @@
 
 ## Pull Request
 
-このリポジトリの PR は **最初から open（Ready for review）** で作る。Draft 禁止。Create 時は `draft: false` を明示する。
+PR は **最初から open（Ready for review）** で作る。Draft 禁止。Create 時は `draft: false` を明示する。
+
+open にしたあと `## コードレビュー結果` / `## セキュリティレビュー結果` が付く。対応手順は `references/pr-review.md`。
 
 検索例:
 

@@ -2,28 +2,44 @@
 name: loop-engineering
 description: >-
   Run one product-backlog loop for this pomodoro repo: pick the next GitHub
-  issue, implement only that issue, attach screenshots or a video, and open a PR.
-  Also sync the backlog after merges, report when user judgment is required,
-  retry transient failures twice, and halt automation on the third unanswered
-  report. Use when asked to run the loop, ループ, 次の issue, or loop engineering.
+  issue, implement only that issue, open a non-draft PR, wait for the repo's
+  Claude Code review comments (コードレビュー結果 / セキュリティレビュー結果), and address
+  Major/Minor findings before finishing. Also sync the backlog after merges,
+  report when user judgment is required, retry transient failures twice, and
+  halt automation on the third unanswered report. Use when asked to run the
+  loop, ループ, 次の issue, review対応, or loop engineering.
 ---
 
-# ループエンジニアリング（1実行 = 1 issue → PR）
+# ループエンジニアリング（1実行 = 1 issue → PR → 自動レビュー対応）
 
-このスキルを **1回実行したら、着手する issue の選定から PR 作成まで** を行う。複数 issue を実装しない。マージ待ちで止まらない（マージ後のバックログ更新は、次の実行の冒頭で行う）。
+このスキルを **1回実行したら**、次を同じ実行で行う。
+
+1. 着手する issue の選定
+2. 実装と動作確認
+3. **open の PR 作成**（Draft 禁止）
+4. このリポジトリに設定した自動レビュー（`## コードレビュー結果` / `## セキュリティレビュー結果`）が来るのを待ち、**指摘に対応するまで**
+
+複数のバックログ issue を実装しない。マージはユーザーに任せる。マージ後のバックログ更新は、次の実行の冒頭で行う。
+
+詳細: [references/pr-review.md](references/pr-review.md)
 
 正となる進捗: GitHub issue **#13**。運用上のチェックリスト: リポジトリの `BACKLOG.md`（#13 を PATCH できない場合の正）。
 
 ## 0. ゲート（着手前に必ず）
 
-順番に判定する。該当したら **実装に入らず** 終了する。
+```bash
+.cursor/skills/loop-engineering/scripts/loop-gate.sh
+python3 .cursor/skills/loop-engineering/scripts/unaddressed_reviews.py
+```
+
+`loop-gate.sh` の exit 2 / 3 / 4 は **実装しない**。4 は GitHub 照会失敗（フェイルクローズ）。`gh` が落ちたときに空リスト扱いで進んではいけない。
 
 ### 0.1 停止フラグ
 
 次のいずれかがあれば作業しない。ユーザーへの再報告だけ行う。
 
 - オープンな GitHub issue のタイトルが `[loop-halt]` で始まる
-- ファイル `.cursor/loop/HALT` が default branch に存在する
+- ファイル `.cursor/loop/HALT` が存在する（**空でも halt**。default branch または作業ツリー）
 
 報告文の型: 「オートメーションは停止中。`[loop-halt]` を close し、HALT ファイルを消すまでループしないでください。Cursor の Automation も無効化してください。」
 
@@ -48,9 +64,18 @@ description: >-
 3. 可能なら GitHub の #13 本文も同様に更新する。PATCH が 403 なら `BACKLOG.md` だけを正とし、同期が必要ならこの実行の PR に含める
 4. 対象 issue を close できるなら close する。できないならユーザー報告に「#N を close してください」と書く
 
+### 0.4 未完了の PR / 自動レビュー（最優先）
+
+新しいバックログ issue より先に、オープンな実装 PR を見る。[references/pr-review.md](references/pr-review.md)
+
+- head より新しい `[Major]` / `[Minor]` がある → **その PR の指摘対応だけ**をする
+- レビューコメントがまだ無い → 最大約 10 分待って再取得。来なければ次のオートメーションに引き継ぎ、**次の issue には進まない**
+- 指摘を直したあとも、フォローアップレビューを最大 1 ラウンド待つ
+- 未マージの実装 PR が残っている間は、次のバックログ issue を始めない
+
 ## 1. issue 選定
 
-`BACKLOG.md` の **未完了の先頭** を次の着手にする。
+`BACKLOG.md` の **未完了の先頭** を次の着手にする。§0.4 に該当するオープン PR があるときは選定しない。
 
 スキップしてよいもの:
 
@@ -74,16 +99,19 @@ description: >-
 - セキュリティ・法務・個人情報
 - バックログの削除・優先度の入れ替え
 - 実装すると既存の確定（Vite + GitHub Pages、サーバなし、最小ボタン）と衝突する
+- 自動レビューの指摘が、確定したプロダクト方針と正面から衝突する
 
 判断しなくてよい例（進めてよい）:
 
 - ライブラリのパッチバージョン、ファイル分割、コンポーネントの見た目の細部（迷わせない範囲）
 - テストの書き方、リトライ可能な CI 失敗
 - #9 のチャート **または** カレンダー（どちらか一方を選ぶ）
+- 自動レビューの Major/Minor で、方針を変えずに直せるもの
 
 ## 3. 実装
 
-- default branch から `feature/<short-name>-51db` を切る（既存のブランチ命名に合わせる）
+- default branch から `feature/<short-kebab>-<短いランダム>` を切る。接尾辞は実行ごとに変える（例: `openssl rand -hex 2`）。**特定の PR の接尾辞を固定で使い回さない**
+- 実行環境がブランチ名のパターンを別途指定しているときだけ、その指定を優先する
 - スコープ外のリファクタや依存追加をしない
 - 確定スタック: React + TypeScript + Vite + Tailwind CSS v4 + HeroUI React v3 + Effect。デプロイは GitHub Pages。サーバ・Expo・HeroUI Native は使わない
 - サイクルの正は issue #3（未実装なら #3 の本文）: `作業25 → 短い休憩5 → 作業25 → 長い休憩15`、終了で自動遷移
@@ -110,13 +138,23 @@ PR 本文に必ず含める:
 
 PR は **最初から open（Ready for review）で作る**。Draft にはしない。`create_pr` では `draft: false` を明示する。このリポジトリでは今後も同様。
 
-PR 作成後、**この実行は終了**する。マージはユーザーまたは既存の automerge に任せる。
+## 4.1 自動レビュー待ちと対応（PR 作成後に必須）
+
+[references/pr-review.md](references/pr-review.md) に従う。要約:
+
+1. PR を出したら `## コードレビュー結果` / `## セキュリティレビュー結果` を待つ（最大約 10 分）
+2. `[Major]` は直す。`[Minor]` も直す。指摘なしなら完了
+3. 同じブランチに push して PR を更新する。対応内容をコメントする（403 なら PR 本文末尾）
+4. 再レビューを最大 1 ラウンド待つ
+5. レビューがこの実行中に来なければ、次のオートメーションが §0.4 で続きをやる。**次のバックログ issue は始めない**
+
+このステップが終わるまで、実行成功とはみなさない。
 
 ## 5. 技術リトライ（最大 2 回）
 
 同じ実行の中で、次に進めない障害が起きたら **同じ手順を最大 2 回まで** やり直す（初回 + リトライ 2 = 計 3 試行）。
 
-リトライしてよい: ネットワーク、`npm i`、push、フレークなテスト、dev server の起動失敗。
+リトライしてよい: ネットワーク、`npm i`、push、フレークなテスト、dev server の起動失敗、レビュー取得の一時失敗。
 
 リトライしてはいけない: §2 のユーザー判断、スコープが壊れている、テストが仕様として落ちる。
 
@@ -131,7 +169,7 @@ PR 作成後、**この実行は終了**する。マージはユーザーまた�
    例: `[loop-report] #11 の受け入れ条件が矛盾 (1/2)`
 2. 本文に: 止まった理由、試したこと、ユーザーに決めてほしいこと、次にループを回してよいか
 3. 実行の最終メッセージでも同じ内容を報告する
-4. **コード変更を始めない**（すでにブランチがあるなら破棄または push しない）
+4. **新しい機能実装を始めない**（すでに PR がある指摘対応中なら、判断待ち以外は直してよい）
 
 何回目かは、既存のオープン `[loop-report]` 数 + 1。これが 3 以上になるなら issue を増やす前に §7 へ。
 
@@ -150,16 +188,21 @@ PR 作成後、**この実行は終了**する。マージはユーザーまた�
 
 次のいずれかで終了する。
 
-- PR を作成し、スクショ/動画（または UI 無しの検証ログ）を付けた
-- ユーザー判断待ちで `[loop-report]` を作り、実装していない
+- PR が open で、最新の自動レビューが指摘なし、または指摘を直した commit がレビューより新しい
+- レビュー待ちのまま時間切れ。次実行が §0.4 で続きをやる旨を報告した
+- ユーザー判断待ちで `[loop-report]` を作り、新規実装していない
 - リトライ 2 回後も進めず報告した
 - `[loop-halt]` で止めた
-- 未完了バックログが無い（その旨報告して終了）
+- 未完了バックログが無く、未対応レビューの PR も無い
 
 ## やってはいけないこと
 
 - 1 実行で 2 つ以上のバックログ issue を実装する
+- 自動レビューの Major が未対応のまま次の issue に進む
 - 判断待ちなのに「仮決め」で実装を進める
 - サーバを建てる、Expo に戻す、分数設定画面やスキップボタンを勝手に足す
 - halt 中に「少しだけ」実装する
 - 動作確認証拠なしで UI 変更の PR を出す
+- PR を Draft で作る（このリポジトリは常に open）
+- `gh` 失敗時に issue 0 件とみなして進行する
+- ブランチ接尾辞を過去の PR の固定文字列でハードコードする
