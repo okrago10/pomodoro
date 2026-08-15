@@ -26,6 +26,21 @@ npm run build
 npm run preview
 ```
 
+## 公開（GitHub Pages）
+
+公開 URL: https://okrago10.github.io/pomodoro/
+
+デフォルトブランチ `main` への push（および Actions タブからの手動実行）で、Vite の静的ビルドを GitHub Pages に出します。カスタムサーバ、Vercel、Netlify は使いません。
+
+まだ Pages が有効でない場合:
+
+1. リポジトリの **Settings → Pages**
+2. **Build and deployment → Source** を **GitHub Actions** にする
+3. `main` へマージしたあとに Actions の **Deploy static content to Pages** が成功することを確認する
+4. iPhone の Safari で上記 URL を開き、初期画面が出ることを確認する
+
+プロジェクトサイトのため `vite.config.ts` の `base` は `/pomodoro/` です。ビルド後に `dist/404.html`（`index.html` のコピー）と `dist/.nojekyll` を置き、GitHub Pages で SPA の直接アクセスと Jekyll 処理を避けます。
+
 ## 開発コマンド
 
 ```bash
