@@ -4,7 +4,7 @@
 ループスキル: `.cursor/skills/loop-engineering/SKILL.md`  
 1 ループ = 未完了の先頭を 1 つ実装して PR まで。
 
-確定技術: Vite + React + TypeScript + Tailwind CSS v4 + HeroUI React v3 + Effect。公開は GitHub Pages。サーバなし。
+確定技術: Vite + React + TypeScript + Tailwind CSS v4 + HeroUI React v3 + Effect。リンタ oxlint、フォーマッタ oxfmt。公開は GitHub Pages。サーバなし。依存はリリースから 7 日以上経った安定版の最新。
 
 サイクル: 作業 25 分 → 短い休憩 5 分 → 作業 25 分 → 長い休憩 15 分（自動遷移）。
 
@@ -12,6 +12,7 @@
 
 - [x] ~~#2 Expo / Native 初期構築~~（キャンセル。GitHub Pages のため使わない）
 - [x] [#14](https://github.com/okrago10/pomodoro/issues/14) ループエンジニアリング用 Cursor Skill
+- [x] [#16](https://github.com/okrago10/pomodoro/issues/16) oxlint / oxfmt と依存パッケージの 7 日ルール
 - [ ] [#11](https://github.com/okrago10/pomodoro/issues/11) 【#2代替】Vite + HeroUI React v3 初期構築
 - [ ] [#12](https://github.com/okrago10/pomodoro/issues/12) GitHub Pages で静的デプロイ
 - [ ] [#3](https://github.com/okrago10/pomodoro/issues/3) ポモドーロサイクルのドメインモデル（Effect）
