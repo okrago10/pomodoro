@@ -30,3 +30,19 @@ export const utcCalendar: Calendar = {
     return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
   },
 };
+
+export function lastNDayKeys(
+  endMs: number,
+  n: number,
+  calendar: Calendar = localCalendar,
+): string[] {
+  const noon = new Date(endMs);
+  noon.setHours(12, 0, 0, 0);
+  const keys: string[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const day = new Date(noon);
+    day.setDate(noon.getDate() - i);
+    keys.push(calendar.dayKey(day.getTime()));
+  }
+  return keys;
+}

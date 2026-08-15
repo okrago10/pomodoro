@@ -1,14 +1,31 @@
+import { useState } from "react";
 import { AlertDialog, Button, Chip, Surface, Typography } from "@heroui/react";
 import { isWorkPhase } from "./domain/cycle.ts";
+import { createLocalStorageDailyWorkStore } from "./timer/dailyWorkStore.ts";
 import { formatRemaining, formatTodayWork } from "./timer/format.ts";
 import { usePomodoroTimer } from "./timer/usePomodoroTimer.ts";
 import { cycleStepLabel, phaseName, startToggleLabel } from "./ui/cycleCopy.ts";
+import { RecordsScreen } from "./ui/RecordsScreen.tsx";
 
 export function App() {
   const { position, remainingMs, status, todayWorkMs, start, pause, reset } = usePomodoroTimer();
+  const [screen, setScreen] = useState<"timer" | "records">("timer");
+  const [store] = useState(() => createLocalStorageDailyWorkStore(window.localStorage));
   const running = status === "running";
   const focusing = isWorkPhase(position.phase);
   const phase = phaseName(position.phase);
+
+  if (screen === "records") {
+    return (
+      <RecordsScreen
+        nowMs={Date.now()}
+        store={store}
+        onBack={() => {
+          setScreen("timer");
+        }}
+      />
+    );
+  }
 
   return (
     <Surface
@@ -17,9 +34,14 @@ export function App() {
     >
       <main className="mx-auto flex min-h-dvh w-full max-w-[390px] flex-1 flex-col items-center justify-between gap-8 px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))]">
         <div className="flex w-full flex-col items-center gap-3 pt-8">
-          <Typography className="self-end" color="muted" type="body-sm">
-            今日 {formatTodayWork(todayWorkMs)}
-          </Typography>
+          <div className="flex w-full items-center justify-between">
+            <Button size="sm" variant="tertiary" onPress={() => setScreen("records")}>
+              記録
+            </Button>
+            <Typography color="muted" type="body-sm">
+              今日 {formatTodayWork(todayWorkMs)}
+            </Typography>
+          </div>
           <Chip color={focusing ? "accent" : "success"} size="lg" variant="primary">
             {phase}
           </Chip>
