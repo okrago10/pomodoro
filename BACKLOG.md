@@ -19,7 +19,7 @@
 - [x] [#4](https://github.com/okrago10/pomodoro/issues/4) タイマー実行とフェーズ自動遷移
 - [x] [#5](https://github.com/okrago10/pomodoro/issues/5) iPhone 16 向け最小 UI
 - [ ] [#6](https://github.com/okrago10/pomodoro/issues/6) フェーズ終了の通知（Web / Safari 前提）
-- [ ] [#7](https://github.com/okrago10/pomodoro/issues/7) 今日の作業時間合計
+- [x] [#7](https://github.com/okrago10/pomodoro/issues/7) 今日の作業時間合計
 - [ ] [#8](https://github.com/okrago10/pomodoro/issues/8) 日別作業時間のローカル永続化
 - [ ] [#9](https://github.com/okrago10/pomodoro/issues/9) 日別記録のチャートまたはカレンダー
 

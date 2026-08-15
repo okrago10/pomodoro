@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { utcCalendar } from "./calendar.ts";
 import { FakeClock } from "./clock.ts";
 import { createTimerEngine, phaseDurationMs } from "./engine.ts";
 
@@ -104,5 +105,68 @@ describe("timer engine", () => {
     expect(snap.position.phase._tag).toBe("ShortBreak");
     expect(snap.remainingMs).toBe(5 * MINUTE - 90 * SECOND);
     expect(phaseDurationMs(snap.position)).toBe(5 * MINUTE);
+  });
+
+  it("adds 25 minutes of work after a completed work phase, not during the break", () => {
+    const clock = new FakeClock();
+    const engine = createTimerEngine(clock, utcCalendar);
+    engine.start();
+    clock.advance(25 * MINUTE);
+    const afterWork = engine.tick();
+    expect(afterWork.todayWorkMs).toBe(25 * MINUTE);
+    expect(afterWork.position.phase._tag).toBe("ShortBreak");
+
+    clock.advance(5 * MINUTE);
+    const afterBreak = engine.tick();
+    expect(afterBreak.todayWorkMs).toBe(25 * MINUTE);
+    expect(afterBreak.position.phase._tag).toBe("Work");
+  });
+
+  it("does not add work time while paused", () => {
+    const clock = new FakeClock();
+    const engine = createTimerEngine(clock, utcCalendar);
+    engine.start();
+    clock.advance(10 * MINUTE);
+    engine.tick();
+    engine.pause();
+    expect(engine.snapshot().todayWorkMs).toBe(10 * MINUTE);
+
+    clock.advance(20 * MINUTE);
+    expect(engine.tick().todayWorkMs).toBe(10 * MINUTE);
+
+    engine.start();
+    clock.advance(5 * MINUTE);
+    expect(engine.tick().todayWorkMs).toBe(15 * MINUTE);
+  });
+
+  it("counts only the work portion of a multi-phase clock jump", () => {
+    const clock = new FakeClock();
+    const engine = createTimerEngine(clock, utcCalendar);
+    engine.start();
+    clock.advance(25 * MINUTE + 90 * SECOND);
+    expect(engine.tick().todayWorkMs).toBe(25 * MINUTE);
+  });
+
+  it("keeps today's total when the cycle is reset", () => {
+    const clock = new FakeClock();
+    const engine = createTimerEngine(clock, utcCalendar);
+    engine.start();
+    clock.advance(8 * MINUTE);
+    engine.tick();
+    const snap = engine.reset();
+    expect(snap.status).toBe("idle");
+    expect(snap.todayWorkMs).toBe(8 * MINUTE);
+  });
+
+  it("resets today's total when the calendar day changes", () => {
+    const clock = new FakeClock();
+    const engine = createTimerEngine(clock, utcCalendar);
+    engine.start();
+    clock.advance(10 * MINUTE);
+    expect(engine.tick().todayWorkMs).toBe(10 * MINUTE);
+
+    engine.pause();
+    clock.advance(24 * 60 * MINUTE);
+    expect(engine.tick().todayWorkMs).toBe(0);
   });
 });
