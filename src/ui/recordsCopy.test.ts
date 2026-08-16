@@ -22,4 +22,15 @@ describe("bar heights", () => {
     expect(barHeightPx(yesterday, max)).toBeGreaterThan(barHeightPx(today, max));
     expect(barHeightPx(0, max)).toBeLessThan(barHeightPx(today, max));
   });
+
+  it("keeps a sub-minute leftover as an empty bar even when it is the day's max", () => {
+    const leftover = 42_000;
+    expect(barHeightPx(leftover, leftover)).toBe(barHeightPx(0, leftover));
+    expect(barHeightPx(leftover, leftover)).toBeLessThan(barHeightPx(25 * 60_000, 25 * 60_000));
+  });
+
+  it("renders empty bars when every day is below one minute", () => {
+    const subMinute = 59_000;
+    expect(barHeightPx(0, 0)).toBe(barHeightPx(subMinute, subMinute));
+  });
 });

@@ -20,7 +20,7 @@ export function RecordsScreen({
   const [selectedKey, setSelectedKey] = useState(todayKey);
   const dayKeys = lastNDayKeys(nowMs, DAYS, localCalendar);
   const totals = dayKeys.map((key) => store.get(key));
-  const maxMs = Math.max(1, ...totals);
+  const maxMs = Math.max(0, ...totals);
   const selectedMs = store.get(selectedKey);
 
   return (
