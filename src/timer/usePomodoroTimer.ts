@@ -5,13 +5,16 @@ import {
   startPhaseKeepAlive,
   stopPhaseKeepAlive,
 } from "../notify/webNotify.ts";
+import { localCalendar } from "./calendar.ts";
 import { systemClock } from "./clock.ts";
+import { createLocalStorageDailyWorkStore } from "./dailyWorkStore.ts";
 import { createTimerEngine, type TimerSnapshot } from "./engine.ts";
 
 const TICK_MS = 250;
 
 export function usePomodoroTimer() {
-  const [engine] = useState(() => createTimerEngine(systemClock));
+  const [store] = useState(() => createLocalStorageDailyWorkStore(window.localStorage));
+  const [engine] = useState(() => createTimerEngine(systemClock, localCalendar, store));
   const [snapshot, setSnapshot] = useState<TimerSnapshot>(() => engine.snapshot());
 
   const applyTick = useCallback(() => {
@@ -54,6 +57,12 @@ export function usePomodoroTimer() {
     };
   }, [applyTick, engine, snapshot.position.stepIndex, snapshot.status]);
 
+  useEffect(() => {
+    return () => {
+      stopPhaseKeepAlive();
+    };
+  }, []);
+
   const start = useCallback(() => {
     void (async () => {
       await preparePhaseFeedback();
@@ -67,5 +76,10 @@ export function usePomodoroTimer() {
     setSnapshot(engine.pause());
   }, [engine]);
 
-  return { ...snapshot, start, pause };
+  const reset = useCallback(() => {
+    stopPhaseKeepAlive();
+    setSnapshot(engine.reset());
+  }, [engine]);
+
+  return { ...snapshot, start, pause, reset, store };
 }

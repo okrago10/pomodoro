@@ -72,28 +72,32 @@ function showPhaseNotification(title: string, body: string): void {
     return;
   }
 
-  const openApp = (): void => {
-    window.focus();
+  const payload = {
+    body,
+    tag: "pomodoro-phase",
+    data: { url: `${globalThis.location?.pathname ?? "/pomodoro/"}` },
   };
 
-  try {
-    const notification = new Notification(title, {
-      body,
-      tag: "pomodoro-phase",
-    });
-    notification.onclick = () => {
-      openApp();
-      notification.close();
-    };
-  } catch {
-    void navigator.serviceWorker?.ready.then((registration) => {
-      void registration.showNotification(title, {
-        body,
-        tag: "pomodoro-phase",
-        data: { url: `${globalThis.location?.pathname ?? "/pomodoro/"}` },
-      });
-    });
+  const viaConstructor = (): void => {
+    try {
+      const notification = new Notification(title, payload);
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+    } catch {
+      // Some browsers reject Notification in a page context.
+    }
+  };
+
+  if ("serviceWorker" in navigator) {
+    void navigator.serviceWorker.ready
+      .then((registration) => registration.showNotification(title, payload))
+      .catch(viaConstructor);
+    return;
   }
+
+  viaConstructor();
 }
 
 export function announcePhaseEnd(endedTag: string, nextTag: string): void {

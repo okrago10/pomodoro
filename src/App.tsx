@@ -1,42 +1,111 @@
-import { Button } from "@heroui/react";
-import { formatRemaining } from "./timer/format.ts";
+import { useState } from "react";
+import { AlertDialog, Button, Chip, Surface, Typography } from "@heroui/react";
+import { isWorkPhase } from "./domain/cycle.ts";
+import { formatRemaining, formatTodayWork } from "./timer/format.ts";
 import { usePomodoroTimer } from "./timer/usePomodoroTimer.ts";
-
-function phaseLabel(tag: string): string {
-  switch (tag) {
-    case "Work":
-      return "作業";
-    case "ShortBreak":
-      return "短い休憩";
-    case "LongBreak":
-      return "長い休憩";
-    default:
-      return tag;
-  }
-}
+import { cycleStepLabel, phaseName, startToggleLabel } from "./ui/cycleCopy.ts";
+import { RecordsScreen } from "./ui/RecordsScreen.tsx";
 
 export function App() {
-  const { position, remainingMs, status, start, pause } = usePomodoroTimer();
+  const { position, remainingMs, status, todayWorkMs, start, pause, reset, store } =
+    usePomodoroTimer();
+  const [screen, setScreen] = useState<"timer" | "records">("timer");
   const running = status === "running";
+  const focusing = isWorkPhase(position.phase);
+  const phase = phaseName(position.phase);
+
+  if (screen === "records") {
+    return (
+      <RecordsScreen
+        nowMs={Date.now()}
+        store={store}
+        onBack={() => {
+          setScreen("timer");
+        }}
+      />
+    );
+  }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-[390px] flex-col items-center justify-center gap-6 px-6 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
-      <h1 className="text-xl font-semibold">pomodoro</h1>
-      <p className="text-sm">{phaseLabel(position.phase._tag)}</p>
-      <p className="font-mono text-5xl tabular-nums" aria-live="polite">
-        {formatRemaining(remainingMs)}
-      </p>
-      <p className="text-center text-sm opacity-70">
-        フェーズ終了を知らせるため、初回の開始時に通知の許可を求めます。
-      </p>
-      <div className="flex gap-3">
-        <Button isDisabled={running} onPress={start}>
-          開始
-        </Button>
-        <Button isDisabled={!running} variant="secondary" onPress={pause}>
-          一時停止
-        </Button>
-      </div>
-    </main>
+    <Surface
+      variant={focusing ? "secondary" : "tertiary"}
+      className={`flex min-h-dvh flex-col ${focusing ? "bg-accent-soft" : "bg-success-soft"}`}
+    >
+      <main className="mx-auto flex min-h-dvh w-full max-w-[390px] flex-1 flex-col items-center justify-between gap-8 px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))]">
+        <div className="flex w-full flex-col items-center gap-3 pt-8">
+          <div className="flex w-full items-center justify-between">
+            <Button size="sm" variant="tertiary" onPress={() => setScreen("records")}>
+              記録
+            </Button>
+            <Typography color="muted" type="body-sm">
+              今日 {formatTodayWork(todayWorkMs)}
+            </Typography>
+          </div>
+          <Chip color={focusing ? "accent" : "success"} size="lg" variant="primary">
+            {phase}
+          </Chip>
+          <Typography align="center" color="muted" type="body-sm">
+            {cycleStepLabel(position)}
+          </Typography>
+          <Typography align="center" color="muted" type="body-sm">
+            フェーズ終了を知らせるため、初回の開始時に通知の許可を求めます。
+          </Typography>
+        </div>
+
+        <p
+          className={`font-mono text-7xl leading-none font-semibold tracking-tight tabular-nums ${
+            focusing ? "text-accent" : "text-success"
+          }`}
+          aria-live="polite"
+        >
+          {formatRemaining(remainingMs)}
+        </p>
+
+        <div className="flex w-full flex-col gap-3 pb-4">
+          <Button
+            fullWidth
+            size="lg"
+            className="min-h-14 text-lg"
+            variant={running ? "secondary" : "primary"}
+            onPress={running ? pause : start}
+          >
+            {startToggleLabel(status)}
+          </Button>
+
+          <AlertDialog>
+            <Button
+              fullWidth
+              size="lg"
+              className="min-h-14"
+              isDisabled={status === "idle"}
+              variant="danger"
+            >
+              リセット
+            </Button>
+            <AlertDialog.Backdrop>
+              <AlertDialog.Container>
+                <AlertDialog.Dialog className="max-w-[min(100%,390px)]">
+                  <AlertDialog.Header>
+                    <AlertDialog.Icon status="danger" />
+                    <AlertDialog.Heading>最初からやり直しますか？</AlertDialog.Heading>
+                  </AlertDialog.Header>
+                  <AlertDialog.Body>
+                    <p>進行中のサイクルは破棄され、1回目の作業（25分）に戻ります。</p>
+                  </AlertDialog.Body>
+                  <AlertDialog.Footer>
+                    <Button slot="close" variant="tertiary">
+                      キャンセル
+                    </Button>
+                    <Button slot="close" variant="danger" onPress={reset}>
+                      リセットする
+                    </Button>
+                  </AlertDialog.Footer>
+                </AlertDialog.Dialog>
+              </AlertDialog.Container>
+            </AlertDialog.Backdrop>
+          </AlertDialog>
+        </div>
+      </main>
+    </Surface>
   );
 }
