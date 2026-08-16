@@ -55,6 +55,14 @@ export function createTimerEngine(clock: Clock) {
     return snapshot();
   }
 
+  function reset(): TimerSnapshot {
+    position = initialCyclePosition;
+    status = "idle";
+    deadlineMs = null;
+    remainingMs = phaseDurationMs(position);
+    return snapshot();
+  }
+
   function tick(): TimerSnapshot {
     if (status !== "running" || deadlineMs === null) {
       return snapshot();
@@ -71,7 +79,7 @@ export function createTimerEngine(clock: Clock) {
     return snapshot();
   }
 
-  return { snapshot, start, pause, tick };
+  return { snapshot, start, pause, reset, tick };
 }
 
 export type TimerEngine = ReturnType<typeof createTimerEngine>;

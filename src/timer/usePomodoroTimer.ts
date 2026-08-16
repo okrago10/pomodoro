@@ -25,5 +25,9 @@ export function usePomodoroTimer() {
     setSnapshot(engine.pause());
   }, [engine]);
 
-  return { ...snapshot, start, pause };
+  const reset = useCallback(() => {
+    setSnapshot(engine.reset());
+  }, [engine]);
+
+  return { ...snapshot, start, pause, reset };
 }

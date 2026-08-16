@@ -76,6 +76,25 @@ describe("timer engine", () => {
     expect(longBreak.status).toBe("running");
   });
 
+  it("resets to the first idle work phase after confirmation-style reset", () => {
+    const clock = new FakeClock();
+    const engine = createTimerEngine(clock);
+    engine.start();
+    clock.advance(25 * MINUTE + 90 * SECOND);
+    engine.tick();
+    expect(engine.snapshot().position.phase._tag).toBe("ShortBreak");
+
+    const snap = engine.reset();
+    expect(snap.status).toBe("idle");
+    expect(snap.position.stepIndex).toBe(0);
+    expect(snap.position.phase._tag).toBe("Work");
+    expect(snap.remainingMs).toBe(25 * MINUTE);
+
+    clock.advance(MINUTE);
+    expect(engine.tick().remainingMs).toBe(25 * MINUTE);
+    expect(engine.snapshot().status).toBe("idle");
+  });
+
   it("keeps phase aligned to the original deadline when the clock jumps", () => {
     const clock = new FakeClock();
     const engine = createTimerEngine(clock);
