@@ -1,3 +1,5 @@
+import { floorToMinuteMs } from "../timer/format.ts";
+
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
 function parts(dayKey: string): { year: number; month: number; day: number } {
@@ -22,11 +24,17 @@ export function selectedDayLabel(dayKey: string, todayKey: string): string {
   return `${month}/${day}`;
 }
 
+const MINUTE_MS = 60_000;
+const EMPTY_BAR_PX = 4;
+const MIN_FILLED_BAR_PX = 8;
+
 export function barHeightPx(ms: number, maxMs: number, maxPx = 120): number {
-  if (ms <= 0) {
-    return 4;
+  const shown = floorToMinuteMs(ms);
+  const maxShown = floorToMinuteMs(maxMs);
+  if (shown <= 0) {
+    return EMPTY_BAR_PX;
   }
-  return Math.max(8, Math.round((ms / Math.max(1, maxMs)) * maxPx));
+  return Math.max(MIN_FILLED_BAR_PX, Math.round((shown / Math.max(MINUTE_MS, maxShown)) * maxPx));
 }
 
 function lastDayBefore(dayKey: string): string {
