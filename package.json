@@ -10,7 +10,9 @@
     "lint:fix": "oxlint --fix .",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "test": "vitest run"
+    "test": "vitest run",
+    "docs:heroui": "node scripts/fetch-heroui-docs.mjs",
+    "postinstall": "node scripts/fetch-heroui-docs.mjs --soft"
   },
   "dependencies": {
     "@heroui/react": "3.2.4",
