@@ -2,5 +2,5 @@ node_modules/
 dist/
 *.local
 .DS_Store
-# heroui-agents-md
+# heroui-agents-md（npm install / npm run docs:heroui で取得。コミットしない）
 .heroui-docs/

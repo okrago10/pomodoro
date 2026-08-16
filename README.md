@@ -6,14 +6,14 @@ iPhone 16 の Safari 向けポモドーロタイマー。GitHub Pages で公開�
 
 確定スタックは次のとおり。サーバ、Expo、React Native、HeroUI Native は使わない。
 
-| 用途 | 技術 |
-| --- | --- |
-| UI | React 19 + TypeScript + Vite |
-| スタイル | Tailwind CSS v4 + HeroUI React v3 |
-| ドメイン | Effect |
-| テスト | Vitest |
-| リンタ / フォーマッタ | oxlint / oxfmt |
-| 公開 | GitHub Pages（Actions で `vite build`） |
+| 用途                  | 技術                                    |
+| --------------------- | --------------------------------------- |
+| UI                    | React 19 + TypeScript + Vite            |
+| スタイル              | Tailwind CSS v4 + HeroUI React v3       |
+| ドメイン              | Effect                                  |
+| テスト                | Vitest                                  |
+| リンタ / フォーマッタ | oxlint / oxfmt                          |
+| 公開                  | GitHub Pages（Actions で `vite build`） |
 
 依存の exact 版は `package.json` を正とする。追加・更新はリリースから 7 日以上経った安定版の最新だけを使う（`.cursor/rules/npm-package-age.mdc`）。
 
@@ -33,6 +33,20 @@ iPhone 16 の Safari 向けポモドーロタイマー。GitHub Pages で公開�
 npm install
 npm run dev
 ```
+
+`npm install` の `postinstall` で、HeroUI React v3 のエージェント向けドキュメントを gitignored の `.heroui-docs/react` へ取得する（GitHub Actions の `CI=true` ではスキップ）。配置は `heroui-cli` の `agents-md --react` と同じ（`heroui` リポジトリの `v3` ブランチを sparse clone）。クローン直後に docs が無いとき、または手動で取り直すときは:
+
+```bash
+npm run docs:heroui
+```
+
+公式 CLI でも同じツリーを作れるが、このリポジトリのスクリプトは git を直接使う（CLI は失敗理由を出さず終わることがある）:
+
+```bash
+npx heroui-cli@3.0.4 agents-md --react --output AGENTS.md
+```
+
+`AGENTS.md` はこのツリーを必読としている。ドキュメント本体はコミットしない。`SKIP_HEROUI_DOCS=1` で取得を省略できる。
 
 開発サーバは `http://localhost:5173/pomodoro/` を開く（`vite.config.ts` の `base` が GitHub Pages のプロジェクトサイト向け `/pomodoro/` のため）。
 

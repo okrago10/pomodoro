@@ -24,6 +24,7 @@
 - [x] [#9](https://github.com/okrago10/pomodoro/issues/9) 日別記録のチャートまたはカレンダー
 - [x] [#28](https://github.com/okrago10/pomodoro/issues/28) 記録と実態が合っていない（1分未満をグラフに積まない）
 - [x] [#29](https://github.com/okrago10/pomodoro/issues/29) README に使用技術を書く
+- [x] [#31](https://github.com/okrago10/pomodoro/issues/31) HeroUI ドキュメントをクローン直後に取得できるようにする
 
 ## 運用
 
