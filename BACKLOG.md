@@ -23,6 +23,7 @@
 - [x] [#8](https://github.com/okrago10/pomodoro/issues/8) 日別作業時間のローカル永続化
 - [x] [#9](https://github.com/okrago10/pomodoro/issues/9) 日別記録のチャートまたはカレンダー
 - [x] [#28](https://github.com/okrago10/pomodoro/issues/28) 記録と実態が合っていない（1分未満をグラフに積まない）
+- [x] [#29](https://github.com/okrago10/pomodoro/issues/29) README に使用技術を書く
 
 ## 運用
 
