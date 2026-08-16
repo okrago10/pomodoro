@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { barHeightPx, displayedWorkMs, selectedDayLabel, weekdayLabel } from "./recordsCopy.ts";
+import { barHeightPx, selectedDayLabel, weekdayLabel } from "./recordsCopy.ts";
 
 describe("records copy", () => {
   it("labels weekdays from the day key", () => {
@@ -25,8 +25,12 @@ describe("bar heights", () => {
 
   it("keeps a sub-minute leftover as an empty bar even when it is the day's max", () => {
     const leftover = 42_000;
-    expect(displayedWorkMs(leftover)).toBe(0);
     expect(barHeightPx(leftover, leftover)).toBe(barHeightPx(0, leftover));
     expect(barHeightPx(leftover, leftover)).toBeLessThan(barHeightPx(25 * 60_000, 25 * 60_000));
+  });
+
+  it("renders empty bars when every day is below one minute", () => {
+    const subMinute = 59_000;
+    expect(barHeightPx(0, 0)).toBe(barHeightPx(subMinute, subMinute));
   });
 });

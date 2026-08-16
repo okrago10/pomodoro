@@ -1,3 +1,5 @@
+import { floorToMinuteMs } from "../timer/format.ts";
+
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
 function parts(dayKey: string): { year: number; month: number; day: number } {
@@ -26,14 +28,9 @@ const MINUTE_MS = 60_000;
 const EMPTY_BAR_PX = 4;
 const MIN_FILLED_BAR_PX = 8;
 
-/** 画面の「N分」と同じ。1分未満は記録ゼロとして扱う。 */
-export function displayedWorkMs(ms: number): number {
-  return Math.floor(Math.max(0, ms) / MINUTE_MS) * MINUTE_MS;
-}
-
 export function barHeightPx(ms: number, maxMs: number, maxPx = 120): number {
-  const shown = displayedWorkMs(ms);
-  const maxShown = displayedWorkMs(maxMs);
+  const shown = floorToMinuteMs(ms);
+  const maxShown = floorToMinuteMs(maxMs);
   if (shown <= 0) {
     return EMPTY_BAR_PX;
   }
