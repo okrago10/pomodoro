@@ -22,6 +22,7 @@
 - [x] [#7](https://github.com/okrago10/pomodoro/issues/7) 今日の作業時間合計
 - [x] [#8](https://github.com/okrago10/pomodoro/issues/8) 日別作業時間のローカル永続化
 - [x] [#9](https://github.com/okrago10/pomodoro/issues/9) 日別記録のチャートまたはカレンダー
+- [x] [#29](https://github.com/okrago10/pomodoro/issues/29) README に使用技術を書く
 
 ## 運用
 

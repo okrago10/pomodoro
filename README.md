@@ -2,6 +2,21 @@
 
 iPhone 16 の Safari 向けポモドーロタイマー。GitHub Pages で公開する。
 
+## 使用技術
+
+確定スタックは次のとおり。サーバ、Expo、React Native、HeroUI Native は使わない。
+
+| 用途 | 技術 |
+| --- | --- |
+| UI | React 19 + TypeScript + Vite |
+| スタイル | Tailwind CSS v4 + HeroUI React v3 |
+| ドメイン | Effect |
+| テスト | Vitest |
+| リンタ / フォーマッタ | oxlint / oxfmt |
+| 公開 | GitHub Pages（Actions で `vite build`） |
+
+依存の exact 版は `package.json` を正とする。追加・更新はリリースから 7 日以上経った安定版の最新だけを使う（`.cursor/rules/npm-package-age.mdc`）。
+
 ## 開発の進め方
 
 プロダクトバックログは [`BACKLOG.md`](./BACKLOG.md) と GitHub issue [#13](https://github.com/okrago10/pomodoro/issues/13)。
