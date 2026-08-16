@@ -22,11 +22,22 @@ export function selectedDayLabel(dayKey: string, todayKey: string): string {
   return `${month}/${day}`;
 }
 
+const MINUTE_MS = 60_000;
+const EMPTY_BAR_PX = 4;
+const MIN_FILLED_BAR_PX = 8;
+
+/** 画面の「N分」と同じ。1分未満は記録ゼロとして扱う。 */
+export function displayedWorkMs(ms: number): number {
+  return Math.floor(Math.max(0, ms) / MINUTE_MS) * MINUTE_MS;
+}
+
 export function barHeightPx(ms: number, maxMs: number, maxPx = 120): number {
-  if (ms <= 0) {
-    return 4;
+  const shown = displayedWorkMs(ms);
+  const maxShown = displayedWorkMs(maxMs);
+  if (shown <= 0) {
+    return EMPTY_BAR_PX;
   }
-  return Math.max(8, Math.round((ms / Math.max(1, maxMs)) * maxPx));
+  return Math.max(MIN_FILLED_BAR_PX, Math.round((shown / Math.max(MINUTE_MS, maxShown)) * maxPx));
 }
 
 function lastDayBefore(dayKey: string): string {

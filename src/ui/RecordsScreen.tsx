@@ -3,7 +3,7 @@ import { Button, Surface, Typography } from "@heroui/react";
 import { lastNDayKeys, localCalendar } from "../timer/calendar.ts";
 import type { DailyWorkStore } from "../timer/dailyWorkStore.ts";
 import { formatTodayWork } from "../timer/format.ts";
-import { barHeightPx, selectedDayLabel, weekdayLabel } from "./recordsCopy.ts";
+import { barHeightPx, displayedWorkMs, selectedDayLabel, weekdayLabel } from "./recordsCopy.ts";
 
 const DAYS = 7;
 
@@ -19,9 +19,9 @@ export function RecordsScreen({
   const todayKey = localCalendar.dayKey(nowMs);
   const [selectedKey, setSelectedKey] = useState(todayKey);
   const dayKeys = lastNDayKeys(nowMs, DAYS, localCalendar);
-  const totals = dayKeys.map((key) => store.get(key));
-  const maxMs = Math.max(1, ...totals);
-  const selectedMs = store.get(selectedKey);
+  const totals = dayKeys.map((key) => displayedWorkMs(store.get(key)));
+  const maxMs = Math.max(0, ...totals);
+  const selectedMs = displayedWorkMs(store.get(selectedKey));
 
   return (
     <Surface variant="secondary" className="flex min-h-dvh flex-col">
