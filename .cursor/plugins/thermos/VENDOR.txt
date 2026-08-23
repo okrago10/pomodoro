@@ -1,0 +1,5 @@
+Vendored from https://github.com/cursor/plugins (directory: thermos)
+commit: 46125561306434d8a1d7745d540d8932ab0cd2a2
+license: MIT (see LICENSE)
+Skills are also copied to .cursor/skills/ and agents to .cursor/agents/
+so this repository's agents can load them without a marketplace install.
