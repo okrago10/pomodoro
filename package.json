@@ -11,6 +11,8 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "test": "vitest run",
+    "audit": "fallow audit",
+    "audit:all": "fallow",
     "docs:heroui": "node scripts/fetch-heroui-docs.mjs",
     "postinstall": "node scripts/fetch-heroui-docs.mjs --soft"
   },
@@ -26,6 +28,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "@vitejs/plugin-react": "6.0.5",
+    "fallow": "3.25.0",
     "oxfmt": "0.62.0",
     "oxlint": "1.77.0",
     "tailwindcss": "4.3.3",
