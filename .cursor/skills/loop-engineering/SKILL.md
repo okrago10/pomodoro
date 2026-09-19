@@ -2,7 +2,7 @@
 name: loop-engineering
 description: >-
   Run one product-backlog loop for this pomodoro repo: pick the next GitHub
-  issue, implement only that issue, open a non-draft PR, wait for the repo's
+  issue, implement only that issue, open a PR and take it out of draft, wait for the repo's
   Claude Code review comments (コードレビュー結果 / セキュリティレビュー結果), and address
   Major/Minor findings before finishing. Also sync the backlog after merges,
   report when user judgment is required, retry transient failures twice, and
@@ -16,7 +16,7 @@ description: >-
 
 1. 着手する issue の選定
 2. 実装と動作確認
-3. **open の PR 作成**（Draft 禁止）
+3. **open の PR 作成**（Draft のまま終えない）
 4. このリポジトリに設定した自動レビュー（`## コードレビュー結果` / `## セキュリティレビュー結果`）が来るのを待ち、**指摘に対応するまで**
 
 複数のバックログ issue を実装しない。マージはユーザーに任せる。マージ後のバックログ更新は、次の実行の冒頭で行う。
@@ -120,7 +120,7 @@ python3 .cursor/skills/loop-engineering/scripts/unaddressed_reviews.py
 - スコープ外のリファクタや依存追加をしない
 - 確定スタック: React + TypeScript + Vite + Tailwind CSS v4 + HeroUI React v3 + Effect。リンタは oxlint、フォーマッタは oxfmt。デプロイは GitHub Pages。サーバ・Expo・HeroUI Native は使わない
 - 依存の追加・更新は `.cursor/rules/npm-package-age.mdc`（リリースから 7 日以上経った安定版の最新。exact pin）。`node scripts/npm-stable-version.mjs <pkg>` で版を決める
-- JS/TS を触ったら PR 前に `npm run lint` と `npm run fmt:check` を通す
+- JS/TS を触ったら PR 前に `npm run lint` と `npm run fmt:check` と `npm run audit` を通す。`audit` は fallow の変更ゲート。新規指摘（`introduced: true`）は直す。手順は AGENTS.md の「fallow（コードベース検査）」
 - サイクルの正は issue #3（未実装なら #3 の本文）: `作業25 → 短い休憩5 → 作業25 → 長い休憩15`、終了で自動遷移
 - 一時的な失敗は §5 のとおり最大 2 回リトライ
 
@@ -142,9 +142,9 @@ PR 本文に必ず含める:
 - 動作確認のスクショまたは動画
 - `Closes #N`（その issue を完了にするとき）
 - `BACKLOG.md` の該当行を `[x]` にしたこと
-- `npm run lint` と `npm run fmt:check` の結果（JS/TS を触ったとき）
+- `npm run lint` と `npm run fmt:check` と `npm run audit` の結果（JS/TS を触ったとき）。fallow の抑制マーカーを足したときはその理由も
 
-PR は **最初から open（Ready for review）で作る**。Draft にはしない。`create_pr` では `draft: false` を明示する。このリポジトリでは今後も同様。
+PR は **レビューを開始する時点で open（Ready for review）** にする。`create_pr` では `draft: false` を明示する。本文を組み立てている間の一時的な Draft は可。ただし Draft のまま実行を終えない。
 
 ## 4.1 自動レビュー待ちと対応（PR 作成後に必須）
 
@@ -214,7 +214,7 @@ PR は **最初から open（Ready for review）で作る**。Draft にはしな
 - サーバを建てる、Expo に戻す、分数設定画面やスキップボタンを勝手に足す
 - halt 中に「少しだけ」実装する
 - 動作確認証拠なしで UI 変更の PR を出す
-- PR を Draft で作る（このリポジトリは常に open）
+- PR を Draft のまま放置する（レビュー開始時には open にする）
 - `gh` 失敗時に issue 0 件とみなして進行する
 - ブランチ接尾辞を過去の PR の固定文字列でハードコードする
 - リリースから 7 日未満の npm パッケージを入れる（`.cursor/rules/npm-package-age.mdc`）
