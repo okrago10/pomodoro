@@ -11,7 +11,7 @@
 2. `npm run audit` を実行する
 3. 新規指摘が出たらコードで解消する。「未使用」と言われたものを消す前に、下表の裏取りコマンドで本当に未使用か確かめる
 4. 仕様上どうしても残すものだけ、対象行の直前に `// fallow-ignore-next-line <issue-type> 残す理由` を書く
-5. verdict が pass になってから PR を出す。抑制マーカーを足したときは、その理由を PR 本文にも列挙する
+5. `npm run audit` が成功してから PR を出す（verdict が `pass` か `warn` なら成功扱い）。抑制マーカーを足したときは、その理由を PR 本文にも列挙する
 
 | やりたいこと                         | コマンド                                         |
 | ------------------------------------ | ------------------------------------------------ |
@@ -21,6 +21,10 @@
 | 「未使用」と言われた依存の裏取り     | `npx fallow dead-code --trace-dependency <name>` |
 | 指摘の意味を調べる                   | `npx fallow explain <issue-type>`                |
 
-設定は `.fallowrc.json`。`public/sw.js` と `scripts/*.mjs` は import ではなく文字列やドキュメントから呼ばれ、静的解析では辿れないため entry に明示している。同じ種類のファイルを増やしたらここに足す。
+`npm run audit` は base を `origin/main` に固定している。fallow の自動検出は、ブランチを push したあとは upstream（自分のブランチのリモート）を base に選んでしまい、前回の push 以降の差分しか見なくなるため。base が古いと判定もずれるので、迷ったら先に `git fetch origin main` する。未マージ PR の上に積んだブランチでは、その PR の head を base にする: `npx fallow audit --base origin/<スタック元のブランチ名>`。
+
+`npm run audit:all` は既存の指摘も数えるため、指摘が 1 件でもあれば exit 1 で終わる。これはゲートではないので失敗として扱わない。直す対象を決めるのは `npm run audit` だけ。
+
+設定は `.fallowrc.json`。`public/sw.js` は `main.tsx` が文字列で register し、`scripts/npm-stable-version.mjs` はドキュメントから呼ばれるため、import をたどる解析では到達できず entry に明示している。それ以外のエントリポイント（vite / vitest / package.json の script）は fallow が自動で検出するので書かない。**静的解析で辿れないものだけ**を足すこと。広いパターン（`scripts/*.mjs` など）で足すと、その配下の本当に未使用なファイルを見逃す。
 
 `fallow watch` は終了しないので、エージェントの実行中には使わない。

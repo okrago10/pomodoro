@@ -11,7 +11,7 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "test": "vitest run",
-    "audit": "fallow audit",
+    "audit": "fallow audit --base origin/main",
     "audit:all": "fallow",
     "docs:heroui": "node scripts/fetch-heroui-docs.mjs",
     "postinstall": "node scripts/fetch-heroui-docs.mjs --soft"

@@ -2,7 +2,7 @@
 name: loop-engineering
 description: >-
   Run one product-backlog loop for this pomodoro repo: pick the next GitHub
-  issue, implement only that issue, open a non-draft PR, wait for the repo's
+  issue, implement only that issue, open a PR and take it out of draft, wait for the repo's
   Claude Code review comments (コードレビュー結果 / セキュリティレビュー結果), and address
   Major/Minor findings before finishing. Also sync the backlog after merges,
   report when user judgment is required, retry transient failures twice, and
