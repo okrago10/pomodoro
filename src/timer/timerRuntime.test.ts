@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRecordingPhaseFeedback } from "../notify/phaseFeedback.ts";
+import { createRecordingPhaseFeedback, type PhaseFeedback } from "../notify/phaseFeedback.ts";
 import { utcCalendar } from "./calendar.ts";
 import { FakeClock } from "./clock.ts";
 import { createMemoryDailyWorkStore } from "./dailyWorkStore.ts";
@@ -152,13 +152,49 @@ describe("timer runtime と通知の順序", () => {
     expect(runtime.getSnapshot().status).toBe("idle");
   });
 
-  it("dispose は keep-alive とタイマーの両方を止める", async () => {
-    const { runtime, scheduler, feedback } = setup();
+  it("最後の購読が外れたら keep-alive とタイマーの両方を止める", async () => {
+    const { runtime, scheduler, feedback, unsubscribe } = setup();
 
     await runtime.start();
-    runtime.dispose();
+    unsubscribe();
 
     expect(feedback.calls.at(-1)).toBe("stopKeepAlive");
     expect(scheduler.pending()).toBe(0);
+  });
+
+  it("通知や音が失敗してもタイマーは進み、次の締切も張る", async () => {
+    const clock = new FakeClock(Date.UTC(2026, 7, 14, 1, 0, 0));
+    const scheduler = createManualScheduler(clock);
+    const broken: PhaseFeedback = {
+      prepare: () => Promise.reject(new Error("no audio")),
+      startKeepAlive: () => {
+        throw new Error("no audio");
+      },
+      stopKeepAlive: () => {
+        throw new Error("no audio");
+      },
+      announce: () => {
+        throw new Error("no notification");
+      },
+    };
+    const runtime = createTimerRuntime({
+      clock,
+      calendar: utcCalendar,
+      store: createMemoryDailyWorkStore(),
+      feedback: broken,
+      scheduler,
+    });
+    const unsubscribe = runtime.subscribe(() => {});
+
+    await runtime.start();
+    expect(runtime.getSnapshot().status).toBe("running");
+
+    scheduler.advance(WORK_MS);
+    expect(runtime.getSnapshot().position.phase._tag).toBe("ShortBreak");
+    expect(scheduler.pending()).toBeGreaterThan(0);
+
+    expect(() => {
+      unsubscribe();
+    }).not.toThrow();
   });
 });

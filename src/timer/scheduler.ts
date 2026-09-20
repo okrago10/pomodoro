@@ -43,7 +43,8 @@ export function createManualScheduler(clock: FakeClock): ManualScheduler {
 
   function add(handler: () => void, ms: number, every: number | null): number {
     const id = nextId++;
-    tasks.set(id, { at: clock.now() + Math.max(0, ms), every, handler });
+    // 0ms でも 1ms 先にすることで、advance が必ず前に進む。
+    tasks.set(id, { at: clock.now() + Math.max(1, ms), every, handler });
     return id;
   }
 

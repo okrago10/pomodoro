@@ -26,8 +26,6 @@ export interface TimerRuntime {
   reset(): void;
   /** 画面が前面に戻ったときなど、外から時計に追いつかせる。 */
   sync(): void;
-  /** 購読が終わったあとの後片付け。 */
-  dispose(): void;
 }
 
 function sameSnapshot(a: TimerSnapshot, b: TimerSnapshot): boolean {
@@ -35,14 +33,17 @@ function sameSnapshot(a: TimerSnapshot, b: TimerSnapshot): boolean {
     a.status === b.status &&
     a.remainingMs === b.remainingMs &&
     a.todayWorkMs === b.todayWorkMs &&
-    a.position.stepIndex === b.position.stepIndex
+    a.position.stepIndex === b.position.stepIndex &&
+    a.position.phase._tag === b.position.phase._tag
   );
 }
 
 /**
  * タイマーの駆動を React の外で持つ。250ms ごとの追いつきと、
- * 締切に合わせた 1 回きりの起床の両方をここで面倒を見る。
- * タイマーを実際に握るのは購読者がいる間だけ。
+ * 締切に合わせた 1 回きりの起床の両方をここで見る。
+ *
+ * タイマーと keep-alive を握るのは購読者がいる間だけで、最後の購読が
+ * 外れたら手放す。後片付けの入口は購読の解除ひとつだけにしてある。
  */
 export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
   const { clock, calendar, store, feedback, scheduler } = deps;
@@ -54,6 +55,15 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
   let deadlineId: number | null = null;
   /** deadlineId のタイマーが狙っている締切。 */
   let scheduledFor: number | null = null;
+
+  /** 知らせられなくてもタイマーは止めない。engine の永続化と同じ扱い。 */
+  function tryFeedback(run: () => void): void {
+    try {
+      run();
+    } catch {
+      // 通知・音・振動の失敗はタイマーに影響させない。
+    }
+  }
 
   function publish(next: TimerSnapshot): void {
     if (sameSnapshot(current, next)) {
@@ -99,7 +109,9 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
     const transitions = engine.takeTransitions();
     publish(next);
     for (const transition of transitions) {
-      feedback.announce(transition.from.phase._tag, transition.to.phase._tag);
+      tryFeedback(() => {
+        feedback.announce(transition.from.phase._tag, transition.to.phase._tag);
+      });
     }
     scheduleDeadline();
   }
@@ -123,34 +135,42 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
         listeners.delete(listener);
         if (listeners.size === 0) {
           stopTimers();
+          tryFeedback(() => {
+            feedback.stopKeepAlive();
+          });
         }
       };
     },
 
     async start() {
-      await feedback.prepare();
-      feedback.startKeepAlive();
+      try {
+        await feedback.prepare();
+      } catch {
+        // 通知の許可や音の下準備に失敗しても、タイマーは始める。
+      }
+      tryFeedback(() => {
+        feedback.startKeepAlive();
+      });
       publish(engine.start());
       scheduleDeadline();
     },
 
     pause() {
-      feedback.stopKeepAlive();
+      tryFeedback(() => {
+        feedback.stopKeepAlive();
+      });
       publish(engine.pause());
       scheduleDeadline();
     },
 
     reset() {
-      feedback.stopKeepAlive();
+      tryFeedback(() => {
+        feedback.stopKeepAlive();
+      });
       publish(engine.reset());
       scheduleDeadline();
     },
 
     sync,
-
-    dispose() {
-      stopTimers();
-      feedback.stopKeepAlive();
-    },
   };
 }

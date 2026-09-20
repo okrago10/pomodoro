@@ -3,7 +3,7 @@ import type { TimerRuntime } from "./timerRuntime.ts";
 
 /**
  * TimerRuntime を React につなぐだけの層。タイマーの駆動と通知の順序は
- * すべて TimerRuntime が持つ。
+ * すべて TimerRuntime が持ち、後片付けも購読の解除で起きる。
  */
 export function usePomodoroTimer(runtime: TimerRuntime) {
   const snapshot = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot);
@@ -17,7 +17,6 @@ export function usePomodoroTimer(runtime: TimerRuntime) {
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
-      runtime.dispose();
     };
   }, [runtime]);
 

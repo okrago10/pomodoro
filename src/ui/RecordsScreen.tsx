@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Button, Surface, Typography } from "@heroui/react";
-import { selectedDay, type RecentDailyWork } from "../timer/dailyWorkReader.ts";
+import type { RecentDailyWork } from "../timer/dailyWorkReader.ts";
 import { formatTodayWork } from "../timer/format.ts";
-import { barHeightPx, selectedDayLabel, weekdayLabel } from "./recordsCopy.ts";
+import { barHeightPx, selectedDay, selectedDayLabel, weekdayLabel } from "./recordsCopy.ts";
 
 export function RecordsScreen({ work, onBack }: { work: RecentDailyWork; onBack: () => void }) {
   const [pickedKey, setPickedKey] = useState<string | null>(null);

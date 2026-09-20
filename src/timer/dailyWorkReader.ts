@@ -4,7 +4,7 @@ import type { DailyWorkTotals } from "./dailyWorkStore.ts";
 import { floorToMinuteMs } from "./format.ts";
 
 /** 記録画面が並べる日数。 */
-export const RECENT_DAYS = 7;
+const RECENT_DAYS = 7;
 
 export interface DailyTotal {
   readonly dayKey: string;
@@ -22,27 +22,17 @@ export interface RecentDailyWork {
 
 /** 記録画面が使う読み口。書き込みは持たない。 */
 export interface DailyWorkReader {
-  recentWork(days: number): RecentDailyWork;
-}
-
-/**
- * 選んでいる日を決める。まだ選んでいないとき、または日付が変わって
- * 選んだ日が枠から外れたときは今日を返す。
- */
-export function selectedDay(work: RecentDailyWork, pickedKey: string | null): DailyTotal {
-  return (
-    work.days.find((day) => day.dayKey === pickedKey) ??
-    work.days.find((day) => day.dayKey === work.todayKey) ?? { dayKey: work.todayKey, ms: 0 }
-  );
+  recentWork(): RecentDailyWork;
 }
 
 export function createDailyWorkReader(
   totals: DailyWorkTotals,
   clock: Clock,
   calendar: Calendar = localCalendar,
+  days: number = RECENT_DAYS,
 ): DailyWorkReader {
   return {
-    recentWork(days) {
+    recentWork() {
       const now = clock.now();
       const stored = totals.readAll();
       const list = lastNDayKeys(now, days, calendar).map((dayKey) => ({

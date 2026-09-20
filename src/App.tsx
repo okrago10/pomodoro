@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AlertDialog, Button, Chip, Surface, Typography } from "@heroui/react";
 import type { AppDeps } from "./appDeps.ts";
 import { isWorkPhase } from "./domain/cycle.ts";
-import { RECENT_DAYS } from "./timer/dailyWorkReader.ts";
 import { formatRemaining, formatTodayWork } from "./timer/format.ts";
 import { usePomodoroTimer } from "./timer/usePomodoroTimer.ts";
 import { cycleStepLabel, phaseName, startToggleLabel } from "./ui/cycleCopy.ts";
@@ -13,14 +12,19 @@ export function App({ deps }: { deps: AppDeps }) {
     deps.timer,
   );
   const [screen, setScreen] = useState<"timer" | "records">("timer");
+  // 記録は今日の合計が動いたときだけ読み直す。描画のたびに localStorage を読まない。
+  const records = useMemo(
+    () => (screen === "records" ? deps.records.recentWork() : null),
+    [deps.records, screen, todayWorkMs],
+  );
   const running = status === "running";
   const focusing = isWorkPhase(position.phase);
   const phase = phaseName(position.phase);
 
-  if (screen === "records") {
+  if (records !== null) {
     return (
       <RecordsScreen
-        work={deps.records.recentWork(RECENT_DAYS)}
+        work={records}
         onBack={() => {
           setScreen("timer");
         }}
