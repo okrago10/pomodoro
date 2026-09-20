@@ -1,8 +1,8 @@
 import { Data, Effect } from "effect";
 
-export const WORK_MINUTES = 25;
-export const SHORT_BREAK_MINUTES = 5;
-export const LONG_BREAK_MINUTES = 15;
+const WORK_MINUTES = 25;
+const SHORT_BREAK_MINUTES = 5;
+const LONG_BREAK_MINUTES = 15;
 
 export type PomodoroPhase = Data.TaggedEnum<{
   Work: {};

@@ -3,15 +3,12 @@
  * Print the newest stable npm version (semver) that has been published for at least N days.
  * Usage: node scripts/npm-stable-version.mjs <package> [days=7]
  */
-const pkg = process.argv[2];
-const days = Number(process.argv[3] ?? 7);
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-if (!pkg || Number.isNaN(days) || days < 0) {
-  console.error("Usage: node scripts/npm-stable-version.mjs <package> [days=7]");
-  process.exit(2);
-}
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-function compareSemver(a, b) {
+export function compareSemver(a, b) {
   const pa = a.split(".").map((part) => Number(part));
   const pb = b.split(".").map((part) => Number(part));
   const len = Math.max(pa.length, pb.length);
@@ -25,7 +22,7 @@ function compareSemver(a, b) {
   return 0;
 }
 
-function stableReleases(times) {
+export function stableReleases(times) {
   const pre = /-/;
   return Object.entries(times)
     .filter(([ver]) => ver !== "created" && ver !== "modified" && !pre.test(ver))
@@ -34,47 +31,82 @@ function stableReleases(times) {
     .sort((a, b) => compareSemver(a.version, b.version) || a.t - b.t);
 }
 
-let res;
-try {
-  res = await fetch(`https://registry.npmjs.org/${encodeURIComponent(pkg)}`);
-} catch (err) {
-  const message = err instanceof Error ? err.message : String(err);
-  console.error(`registry request failed for ${pkg}: ${message}`);
-  process.exit(1);
+/**
+ * Pick the highest stable version published at least `days` ago.
+ * Returns null when no release is old enough.
+ */
+export function pickStableVersion(times, { days, now = Date.now() }) {
+  const releases = stableReleases(times);
+  const eligible = releases.filter((row) => row.t <= now - days * DAY_MS);
+  if (eligible.length === 0) {
+    return null;
+  }
+  const best = eligible[eligible.length - 1];
+  const latestStable = releases.at(-1);
+  return {
+    version: best.version,
+    published: best.published,
+    skippedNewer:
+      latestStable && latestStable.version !== best.version
+        ? { version: latestStable.version, published: latestStable.published }
+        : null,
+  };
 }
 
-if (!res.ok) {
-  console.error(`registry error ${res.status} for ${pkg}`);
-  process.exit(1);
+/** Read the CLI arguments. Returns null when they are unusable. */
+export function parseArgs(argv) {
+  const pkg = argv[2];
+  const days = Number(argv[3] ?? 7);
+  if (!pkg || Number.isNaN(days) || days < 0) {
+    return null;
+  }
+  return { pkg, days };
 }
 
-const data = await res.json();
-const times = data.time ?? {};
-const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-const releases = stableReleases(times);
-const eligible = releases.filter((row) => row.t <= cutoff);
+/** Fetch a package's publish times from the npm registry. */
+export async function fetchPackageTimes(pkg, fetchImpl = fetch) {
+  let res;
+  let data;
+  try {
+    res = await fetchImpl(`https://registry.npmjs.org/${encodeURIComponent(pkg)}`);
+    if (!res.ok) {
+      return { ok: false, message: `registry error ${res.status} for ${pkg}` };
+    }
+    data = await res.json();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, message: `registry request failed for ${pkg}: ${message}` };
+  }
 
-if (eligible.length === 0) {
-  console.error(`no stable version of ${pkg} is at least ${days} days old`);
-  process.exit(1);
+  return { ok: true, times: data.time ?? {} };
 }
 
-const best = eligible[eligible.length - 1];
-const latestStable = releases.at(-1);
+async function main(argv) {
+  const args = parseArgs(argv);
+  if (args === null) {
+    console.error("Usage: node scripts/npm-stable-version.mjs <package> [days=7]");
+    return 2;
+  }
 
-console.log(
-  JSON.stringify(
-    {
-      package: pkg,
-      days,
-      version: best.version,
-      published: best.published,
-      skippedNewer:
-        latestStable && latestStable.version !== best.version
-          ? { version: latestStable.version, published: latestStable.published }
-          : null,
-    },
-    null,
-    2,
-  ),
-);
+  const fetched = await fetchPackageTimes(args.pkg);
+  if (!fetched.ok) {
+    console.error(fetched.message);
+    return 1;
+  }
+
+  const picked = pickStableVersion(fetched.times, { days: args.days });
+  if (picked === null) {
+    console.error(`no stable version of ${args.pkg} is at least ${args.days} days old`);
+    return 1;
+  }
+
+  console.log(JSON.stringify({ package: args.pkg, days: args.days, ...picked }, null, 2));
+  return 0;
+}
+
+const invokedDirectly =
+  process.argv[1] != null && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (invokedDirectly) {
+  process.exit(await main(process.argv));
+}
