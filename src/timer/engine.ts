@@ -19,7 +19,7 @@ export interface TimerSnapshot {
   readonly todayWorkMs: number;
 }
 
-export interface PhaseTransition {
+interface PhaseTransition {
   readonly from: CyclePosition;
   readonly to: CyclePosition;
 }
@@ -167,5 +167,3 @@ export function createTimerEngine(
 
   return { snapshot, start, pause, reset, tick, takeTransitions, runningDeadlineMs };
 }
-
-export type TimerEngine = ReturnType<typeof createTimerEngine>;
