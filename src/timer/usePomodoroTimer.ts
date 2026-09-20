@@ -1,85 +1,37 @@
-import { useCallback, useEffect, useState } from "react";
-import {
-  announcePhaseEnd,
-  preparePhaseFeedback,
-  startPhaseKeepAlive,
-  stopPhaseKeepAlive,
-} from "../notify/webNotify.ts";
-import { localCalendar } from "./calendar.ts";
-import { systemClock } from "./clock.ts";
-import { createLocalStorageDailyWorkStore } from "./dailyWorkStore.ts";
-import { createTimerEngine, type TimerSnapshot } from "./engine.ts";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
+import type { TimerRuntime } from "./timerRuntime.ts";
 
-const TICK_MS = 250;
-
-export function usePomodoroTimer() {
-  const [store] = useState(() => createLocalStorageDailyWorkStore(window.localStorage));
-  const [engine] = useState(() => createTimerEngine(systemClock, localCalendar, store));
-  const [snapshot, setSnapshot] = useState<TimerSnapshot>(() => engine.snapshot());
-
-  const applyTick = useCallback(() => {
-    const next = engine.tick();
-    const transitions = engine.takeTransitions();
-    setSnapshot(next);
-    for (const transition of transitions) {
-      announcePhaseEnd(transition.from.phase._tag, transition.to.phase._tag);
-    }
-  }, [engine]);
+/**
+ * TimerRuntime を React につなぐだけの層。タイマーの駆動と通知の順序は
+ * すべて TimerRuntime が持つ。
+ */
+export function usePomodoroTimer(runtime: TimerRuntime) {
+  const snapshot = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot);
 
   useEffect(() => {
-    const id = window.setInterval(applyTick, TICK_MS);
-    return () => {
-      window.clearInterval(id);
-    };
-  }, [applyTick]);
-
-  useEffect(() => {
-    const onVisibility = () => {
+    const onVisibility = (): void => {
       if (document.visibilityState === "visible") {
-        applyTick();
+        runtime.sync();
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
+      runtime.dispose();
     };
-  }, [applyTick]);
-
-  useEffect(() => {
-    const deadline = engine.runningDeadlineMs();
-    if (snapshot.status !== "running" || deadline === null) {
-      return;
-    }
-    const delay = Math.max(0, deadline - Date.now());
-    const id = window.setTimeout(applyTick, delay + 30);
-    return () => {
-      window.clearTimeout(id);
-    };
-  }, [applyTick, engine, snapshot.position.stepIndex, snapshot.status]);
-
-  useEffect(() => {
-    return () => {
-      stopPhaseKeepAlive();
-    };
-  }, []);
+  }, [runtime]);
 
   const start = useCallback(() => {
-    void (async () => {
-      await preparePhaseFeedback();
-      startPhaseKeepAlive();
-      setSnapshot(engine.start());
-    })();
-  }, [engine]);
+    void runtime.start();
+  }, [runtime]);
 
   const pause = useCallback(() => {
-    stopPhaseKeepAlive();
-    setSnapshot(engine.pause());
-  }, [engine]);
+    runtime.pause();
+  }, [runtime]);
 
   const reset = useCallback(() => {
-    stopPhaseKeepAlive();
-    setSnapshot(engine.reset());
-  }, [engine]);
+    runtime.reset();
+  }, [runtime]);
 
-  return { ...snapshot, start, pause, reset, store };
+  return { ...snapshot, start, pause, reset };
 }

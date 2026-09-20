@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { AlertDialog, Button, Chip, Surface, Typography } from "@heroui/react";
+import type { AppDeps } from "./appDeps.ts";
 import { isWorkPhase } from "./domain/cycle.ts";
 import { formatRemaining, formatTodayWork } from "./timer/format.ts";
 import { usePomodoroTimer } from "./timer/usePomodoroTimer.ts";
 import { cycleStepLabel, phaseName, startToggleLabel } from "./ui/cycleCopy.ts";
 import { RecordsScreen } from "./ui/RecordsScreen.tsx";
 
-export function App() {
-  const { position, remainingMs, status, todayWorkMs, start, pause, reset, store } =
-    usePomodoroTimer();
+export function App({ deps }: { deps: AppDeps }) {
+  const { position, remainingMs, status, todayWorkMs, start, pause, reset } = usePomodoroTimer(
+    deps.timer,
+  );
   const [screen, setScreen] = useState<"timer" | "records">("timer");
   const running = status === "running";
   const focusing = isWorkPhase(position.phase);
@@ -18,7 +20,7 @@ export function App() {
     return (
       <RecordsScreen
         nowMs={Date.now()}
-        store={store}
+        store={deps.store}
         onBack={() => {
           setScreen("timer");
         }}
