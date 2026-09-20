@@ -52,6 +52,8 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
   let current = engine.snapshot();
   let intervalId: number | null = null;
   let deadlineId: number | null = null;
+  /** deadlineId のタイマーが狙っている締切。 */
+  let scheduledFor: number | null = null;
 
   function publish(next: TimerSnapshot): void {
     if (sameSnapshot(current, next)) {
@@ -63,20 +65,33 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
     }
   }
 
-  function scheduleDeadline(): void {
+  function clearDeadline(): void {
     if (deadlineId !== null) {
       scheduler.clearTimeout(deadlineId);
       deadlineId = null;
     }
-    const deadline = engine.runningDeadlineMs();
-    if (listeners.size === 0 || deadline === null) {
+    scheduledFor = null;
+  }
+
+  function scheduleDeadline(): void {
+    const deadline = listeners.size === 0 ? null : engine.runningDeadlineMs();
+    if (deadlineId !== null && deadline === scheduledFor) {
+      // 同じ締切を狙うタイマーがもう動いている。250ms ごとに張り替えない。
       return;
     }
-    const delay = Math.max(0, deadline - clock.now()) + DEADLINE_MARGIN_MS;
-    deadlineId = scheduler.setTimeout(() => {
-      deadlineId = null;
-      sync();
-    }, delay);
+    clearDeadline();
+    if (deadline === null) {
+      return;
+    }
+    scheduledFor = deadline;
+    deadlineId = scheduler.setTimeout(
+      () => {
+        deadlineId = null;
+        scheduledFor = null;
+        sync();
+      },
+      Math.max(0, deadline - clock.now()) + DEADLINE_MARGIN_MS,
+    );
   }
 
   function sync(): void {
@@ -94,10 +109,7 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
       scheduler.clearInterval(intervalId);
       intervalId = null;
     }
-    if (deadlineId !== null) {
-      scheduler.clearTimeout(deadlineId);
-      deadlineId = null;
-    }
+    clearDeadline();
   }
 
   return {

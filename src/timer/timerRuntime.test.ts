@@ -4,16 +4,16 @@ import { utcCalendar } from "./calendar.ts";
 import { FakeClock } from "./clock.ts";
 import { createMemoryDailyWorkStore } from "./dailyWorkStore.ts";
 import type { TimerSnapshot } from "./engine.ts";
-import { createManualScheduler } from "./scheduler.ts";
+import { createManualScheduler, type ManualScheduler } from "./scheduler.ts";
 import { createTimerRuntime } from "./timerRuntime.ts";
 
 const MINUTE_MS = 60_000;
 const WORK_MS = 25 * MINUTE_MS;
 const SHORT_BREAK_MS = 5 * MINUTE_MS;
 
-function setup() {
+function setup(wrapScheduler: (base: ManualScheduler) => ManualScheduler = (base) => base) {
   const clock = new FakeClock(Date.UTC(2026, 7, 14, 1, 0, 0));
-  const scheduler = createManualScheduler(clock);
+  const scheduler = wrapScheduler(createManualScheduler(clock));
   const feedback = createRecordingPhaseFeedback();
   const store = createMemoryDailyWorkStore();
   const runtime = createTimerRuntime({
@@ -88,6 +88,30 @@ describe("timer runtime の駆動", () => {
       { endedTag: "Work", nextTag: "LongBreak" },
     ]);
     expect(runtime.getSnapshot().position.phase._tag).toBe("LongBreak");
+  });
+
+  it("締切が同じ間はそのタイマーを張り替えない", async () => {
+    let timeouts = 0;
+    const { runtime, scheduler } = setup((base) => ({
+      ...base,
+      setTimeout(handler, ms) {
+        timeouts++;
+        return base.setTimeout(handler, ms);
+      },
+    }));
+
+    await runtime.start();
+    const afterStart = timeouts;
+    scheduler.advance(10 * 1000);
+
+    expect(afterStart).toBe(1);
+    expect(timeouts).toBe(1);
+
+    scheduler.advance(WORK_MS);
+
+    // 次のフェーズに入った分だけ張り直す。
+    expect(timeouts).toBe(2);
+    expect(runtime.getSnapshot().position.phase._tag).toBe("ShortBreak");
   });
 
   it("作業した分だけを今日の記録に足す", async () => {
