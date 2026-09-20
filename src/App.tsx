@@ -2,6 +2,7 @@ import { useState } from "react";
 import { AlertDialog, Button, Chip, Surface, Typography } from "@heroui/react";
 import type { AppDeps } from "./appDeps.ts";
 import { isWorkPhase } from "./domain/cycle.ts";
+import { RECENT_DAYS } from "./timer/dailyWorkReader.ts";
 import { formatRemaining, formatTodayWork } from "./timer/format.ts";
 import { usePomodoroTimer } from "./timer/usePomodoroTimer.ts";
 import { cycleStepLabel, phaseName, startToggleLabel } from "./ui/cycleCopy.ts";
@@ -19,8 +20,7 @@ export function App({ deps }: { deps: AppDeps }) {
   if (screen === "records") {
     return (
       <RecordsScreen
-        nowMs={Date.now()}
-        store={deps.store}
+        work={deps.records.recentWork(RECENT_DAYS)}
         onBack={() => {
           setScreen("timer");
         }}

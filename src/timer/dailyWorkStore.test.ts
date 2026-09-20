@@ -25,6 +25,13 @@ describe("memory daily work store", () => {
     expect(store.get("2026-08-14")).toBe(25 * 60_000);
     expect(store.get("2026-08-15")).toBe(5 * 60_000);
   });
+
+  it("readAll は全日分を、呼ぶたびに別のオブジェクトとして返す", () => {
+    const store = createMemoryDailyWorkStore({ "2026-08-14": 25 * 60_000 });
+
+    expect(store.readAll()).toEqual({ "2026-08-14": 25 * 60_000 });
+    expect(store.readAll()).not.toBe(store.readAll());
+  });
 });
 
 describe("localStorage daily work store", () => {
@@ -36,6 +43,26 @@ describe("localStorage daily work store", () => {
     const second = createLocalStorageDailyWorkStore(storage);
     expect(second.get("2026-08-15")).toBe(10 * 60_000);
     expect(storage.getItem(DAILY_WORK_STORAGE_KEY)).toContain("2026-08-15");
+  });
+
+  it("readAll は全日分を 1 回の読み込みで返す", () => {
+    const storage = new MemoryStorage();
+    const store = createLocalStorageDailyWorkStore(storage);
+    store.add("2026-08-14", 25 * 60_000);
+    store.add("2026-08-15", 5 * 60_000);
+
+    expect(store.readAll()).toEqual({
+      "2026-08-14": 25 * 60_000,
+      "2026-08-15": 5 * 60_000,
+    });
+  });
+
+  it("壊れた保存内容でも readAll は空を返す", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(DAILY_WORK_STORAGE_KEY, "not json");
+    const store = createLocalStorageDailyWorkStore(storage);
+
+    expect(store.readAll()).toEqual({});
   });
 
   it("ignores write failures", () => {

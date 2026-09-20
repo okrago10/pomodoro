@@ -24,15 +24,16 @@ describe("bar heights", () => {
     expect(barHeightPx(0, max)).toBeLessThan(barHeightPx(today, max));
   });
 
-  it("keeps a sub-minute leftover as an empty bar even when it is the day's max", () => {
-    const leftover = 42_000;
-    expect(barHeightPx(leftover, leftover)).toBe(barHeightPx(0, leftover));
-    expect(barHeightPx(leftover, leftover)).toBeLessThan(barHeightPx(25 * 60_000, 25 * 60_000));
+  it("0 の日は最大値によらず同じ空の棒にする", () => {
+    expect(barHeightPx(0, 0)).toBe(barHeightPx(0, 25 * 60_000));
   });
 
-  it("renders empty bars when every day is below one minute", () => {
-    const subMinute = 59_000;
-    expect(barHeightPx(0, 0)).toBe(barHeightPx(subMinute, subMinute));
+  it("全部 0 の週でも高さを計算できる", () => {
+    expect(barHeightPx(0, 0)).toBeGreaterThan(0);
+  });
+
+  it("最大が 1 分でも、埋まった棒は空の棒より高い", () => {
+    expect(barHeightPx(60_000, 60_000)).toBeGreaterThan(barHeightPx(0, 60_000));
   });
 });
 

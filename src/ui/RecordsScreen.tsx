@@ -1,27 +1,16 @@
 import { useState } from "react";
 import { Button, Surface, Typography } from "@heroui/react";
-import { lastNDayKeys, localCalendar } from "../timer/calendar.ts";
-import type { DailyWorkStore } from "../timer/dailyWorkStore.ts";
+import type { RecentDailyWork } from "../timer/dailyWorkReader.ts";
 import { formatTodayWork } from "../timer/format.ts";
 import { barHeightPx, selectedDayLabel, weekdayLabel } from "./recordsCopy.ts";
 
-const DAYS = 7;
-
-export function RecordsScreen({
-  nowMs,
-  store,
-  onBack,
-}: {
-  nowMs: number;
-  store: DailyWorkStore;
-  onBack: () => void;
-}) {
-  const todayKey = localCalendar.dayKey(nowMs);
-  const [selectedKey, setSelectedKey] = useState(todayKey);
-  const dayKeys = lastNDayKeys(nowMs, DAYS, localCalendar);
-  const totals = dayKeys.map((key) => store.get(key));
-  const maxMs = Math.max(0, ...totals);
-  const selectedMs = store.get(selectedKey);
+export function RecordsScreen({ work, onBack }: { work: RecentDailyWork; onBack: () => void }) {
+  const [pickedKey, setPickedKey] = useState<string | null>(null);
+  // 日付が変わって選んでいた日が 7 日の枠から外れたら、今日に戻す。
+  const selected =
+    work.days.find((day) => day.dayKey === pickedKey) ??
+    work.days.find((day) => day.dayKey === work.todayKey);
+  const selectedKey = selected?.dayKey ?? work.todayKey;
 
   return (
     <Surface variant="secondary" className="flex min-h-dvh flex-col">
@@ -36,37 +25,37 @@ export function RecordsScreen({
 
         <div className="flex flex-col items-center gap-2">
           <Typography color="muted" type="body-sm">
-            {selectedDayLabel(selectedKey, todayKey)}
+            {selectedDayLabel(selectedKey, work.todayKey)}
           </Typography>
-          <Typography className="text-4xl font-semibold">{formatTodayWork(selectedMs)}</Typography>
+          <Typography className="text-4xl font-semibold">
+            {formatTodayWork(selected?.ms ?? 0)}
+          </Typography>
         </div>
 
         <div className="flex h-[168px] items-end justify-between gap-1">
-          {dayKeys.map((key, index) => {
-            const ms = totals[index];
-            const height = barHeightPx(ms, maxMs);
-            const selected = key === selectedKey;
+          {work.days.map((day) => {
+            const isSelected = day.dayKey === selectedKey;
             return (
               <button
-                key={key}
+                key={day.dayKey}
                 type="button"
                 className="flex min-h-14 min-w-0 flex-1 flex-col items-center justify-end gap-2"
-                aria-pressed={selected}
-                aria-label={`${selectedDayLabel(key, todayKey)} ${formatTodayWork(ms)}`}
+                aria-pressed={isSelected}
+                aria-label={`${selectedDayLabel(day.dayKey, work.todayKey)} ${formatTodayWork(day.ms)}`}
                 onClick={() => {
-                  setSelectedKey(key);
+                  setPickedKey(day.dayKey);
                 }}
               >
                 <span
-                  className={`w-full max-w-8 rounded-t-md ${selected ? "bg-accent" : "bg-accent-soft"}`}
-                  style={{ height }}
+                  className={`w-full max-w-8 rounded-t-md ${isSelected ? "bg-accent" : "bg-accent-soft"}`}
+                  style={{ height: barHeightPx(day.ms, work.maxMs) }}
                 />
                 <Typography
-                  className={selected ? "font-semibold" : undefined}
+                  className={isSelected ? "font-semibold" : undefined}
                   color="muted"
                   type="body-sm"
                 >
-                  {weekdayLabel(key)}
+                  {weekdayLabel(day.dayKey)}
                 </Typography>
               </button>
             );

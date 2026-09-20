@@ -1,13 +1,14 @@
 import { createWebPhaseFeedback } from "./notify/webNotify.ts";
 import { localCalendar } from "./timer/calendar.ts";
 import { systemClock } from "./timer/clock.ts";
-import { createLocalStorageDailyWorkStore, type DailyWorkStore } from "./timer/dailyWorkStore.ts";
+import { createDailyWorkReader, type DailyWorkReader } from "./timer/dailyWorkReader.ts";
+import { createLocalStorageDailyWorkStore } from "./timer/dailyWorkStore.ts";
 import { windowScheduler } from "./timer/scheduler.ts";
 import { createTimerRuntime, type TimerRuntime } from "./timer/timerRuntime.ts";
 
 export interface AppDeps {
   readonly timer: TimerRuntime;
-  readonly store: DailyWorkStore;
+  readonly records: DailyWorkReader;
 }
 
 /** 本番の組み立てはここ 1 箇所だけ。 */
@@ -22,6 +23,6 @@ export function createWebAppDeps(): AppDeps {
       feedback: createWebPhaseFeedback(),
       scheduler: windowScheduler,
     }),
-    store,
+    records: createDailyWorkReader(store, systemClock, localCalendar),
   };
 }
