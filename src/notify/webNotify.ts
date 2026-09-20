@@ -1,27 +1,19 @@
+import type { PhaseFeedback } from "./phaseFeedback.ts";
 import { phaseEndedCopy } from "./phaseMessage.ts";
 
 const KEEP_GAIN = 0.0005;
 const BEEP_GAIN = 0.14;
 const BEEP_SECONDS = 0.2;
+const KEEP_ALIVE_HZ = 24;
+const BEEP_HZ = 880;
 
-let audioContext: AudioContext | null = null;
-let keepOscillator: OscillatorNode | null = null;
-let keepGain: GainNode | null = null;
-
-function getAudioContext(): AudioContext | null {
-  if (typeof AudioContext === "undefined") {
-    return null;
-  }
-  audioContext ??= new AudioContext();
-  return audioContext;
-}
-
-export async function preparePhaseFeedback(): Promise<void> {
-  const ctx = getAudioContext();
+async function resumeAudio(ctx: AudioContext | null): Promise<void> {
   if (ctx?.state === "suspended") {
     await ctx.resume();
   }
+}
 
+async function askNotificationPermission(): Promise<void> {
   if (typeof Notification === "undefined") {
     return;
   }
@@ -30,37 +22,11 @@ export async function preparePhaseFeedback(): Promise<void> {
   }
 }
 
-export function startPhaseKeepAlive(): void {
-  const ctx = getAudioContext();
-  if (!ctx || keepOscillator) {
-    return;
-  }
-  void ctx.resume();
-  keepOscillator = ctx.createOscillator();
-  keepGain = ctx.createGain();
-  keepOscillator.frequency.value = 24;
-  keepGain.gain.value = KEEP_GAIN;
-  keepOscillator.connect(keepGain).connect(ctx.destination);
-  keepOscillator.start();
-}
-
-export function stopPhaseKeepAlive(): void {
-  keepOscillator?.stop();
-  keepOscillator?.disconnect();
-  keepGain?.disconnect();
-  keepOscillator = null;
-  keepGain = null;
-}
-
-function playBeep(): void {
-  const ctx = getAudioContext();
-  if (!ctx) {
-    return;
-  }
+function playBeep(ctx: AudioContext): void {
   void ctx.resume();
   const oscillator = ctx.createOscillator();
   const gain = ctx.createGain();
-  oscillator.frequency.value = 880;
+  oscillator.frequency.value = BEEP_HZ;
   gain.gain.value = BEEP_GAIN;
   oscillator.connect(gain).connect(ctx.destination);
   oscillator.start();
@@ -100,9 +66,56 @@ function showPhaseNotification(title: string, body: string): void {
   viaConstructor();
 }
 
-export function announcePhaseEnd(endedTag: string, nextTag: string): void {
-  const copy = phaseEndedCopy(endedTag, nextTag);
-  navigator.vibrate?.([80, 40, 80]);
-  playBeep();
-  showPhaseNotification(copy.title, copy.body);
+/** ブラウザの通知・音・振動でフェーズ終了を知らせるアダプター。 */
+export function createWebPhaseFeedback(): PhaseFeedback {
+  let audioContext: AudioContext | null = null;
+  let keepOscillator: OscillatorNode | null = null;
+  let keepGain: GainNode | null = null;
+
+  function getAudioContext(): AudioContext | null {
+    if (typeof AudioContext === "undefined") {
+      return null;
+    }
+    audioContext ??= new AudioContext();
+    return audioContext;
+  }
+
+  return {
+    async prepare() {
+      await resumeAudio(getAudioContext());
+      await askNotificationPermission();
+    },
+
+    startKeepAlive() {
+      const ctx = getAudioContext();
+      if (!ctx || keepOscillator) {
+        return;
+      }
+      void ctx.resume();
+      keepOscillator = ctx.createOscillator();
+      keepGain = ctx.createGain();
+      keepOscillator.frequency.value = KEEP_ALIVE_HZ;
+      keepGain.gain.value = KEEP_GAIN;
+      keepOscillator.connect(keepGain).connect(ctx.destination);
+      keepOscillator.start();
+    },
+
+    stopKeepAlive() {
+      keepOscillator?.stop();
+      keepOscillator?.disconnect();
+      keepGain?.disconnect();
+      keepOscillator = null;
+      keepGain = null;
+    },
+
+    announce(endedTag, nextTag) {
+      const copy = phaseEndedCopy(endedTag, nextTag);
+      const ctx = getAudioContext();
+      navigator.vibrate?.([80, 40, 80]);
+      if (ctx) {
+        playBeep(ctx);
+      }
+      showPhaseNotification(copy.title, copy.body);
+    },
+  };
 }

@@ -1,0 +1,80 @@
+import { describe, expect, it } from "vitest";
+import { utcCalendar } from "./calendar.ts";
+import { FakeClock } from "./clock.ts";
+import { createDailyWorkReader } from "./dailyWorkReader.ts";
+import { createMemoryDailyWorkStore } from "./dailyWorkStore.ts";
+
+const MINUTE_MS = 60_000;
+const NOW = Date.UTC(2026, 7, 14, 3, 0, 0);
+
+function readerWith(totals: Readonly<Record<string, number>>, days = 3) {
+  const store = createMemoryDailyWorkStore(totals);
+  return createDailyWorkReader(store, new FakeClock(NOW), utcCalendar, days);
+}
+
+describe("daily work reader", () => {
+  it("今日で終わる連続した日を古い順に返す", () => {
+    const work = readerWith({}).recentWork();
+
+    expect(work.todayKey).toBe("2026-08-14");
+    expect(work.days.map((day) => day.dayKey)).toEqual(["2026-08-12", "2026-08-13", "2026-08-14"]);
+  });
+
+  it("既定では 7 日分を返す", () => {
+    const reader = createDailyWorkReader(
+      createMemoryDailyWorkStore(),
+      new FakeClock(NOW),
+      utcCalendar,
+    );
+
+    expect(reader.recentWork().days).toHaveLength(7);
+  });
+
+  it("記録の無い日は 0 にする", () => {
+    const work = readerWith({ "2026-08-14": 25 * MINUTE_MS }).recentWork();
+
+    expect(work.days.map((day) => day.ms)).toEqual([0, 0, 25 * MINUTE_MS]);
+  });
+
+  it("1 分未満しか働いていない日は 0 として返す", () => {
+    const work = readerWith({ "2026-08-14": 42_000 }).recentWork();
+
+    expect(work.days.at(-1)?.ms).toBe(0);
+    expect(work.maxMs).toBe(0);
+  });
+
+  it("端数は分単位に切り捨てる", () => {
+    const work = readerWith({ "2026-08-14": 25 * MINUTE_MS + 42_000 }).recentWork();
+
+    expect(work.days.at(-1)?.ms).toBe(25 * MINUTE_MS);
+  });
+
+  it("枠の中の最大値を返す", () => {
+    const work = readerWith({
+      "2026-08-12": 50 * MINUTE_MS,
+      "2026-08-14": 25 * MINUTE_MS,
+      "2026-08-01": 90 * MINUTE_MS,
+    }).recentWork();
+
+    expect(work.maxMs).toBe(50 * MINUTE_MS);
+  });
+
+  it("全日分を 1 回の読み込みで取る", () => {
+    const store = createMemoryDailyWorkStore({ "2026-08-14": 25 * MINUTE_MS });
+    let reads = 0;
+    const reader = createDailyWorkReader(
+      {
+        readAll() {
+          reads++;
+          return store.readAll();
+        },
+      },
+      new FakeClock(NOW),
+      utcCalendar,
+    );
+
+    reader.recentWork();
+
+    expect(reads).toBe(1);
+  });
+});
