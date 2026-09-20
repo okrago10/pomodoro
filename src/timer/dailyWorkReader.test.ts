@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { utcCalendar } from "./calendar.ts";
 import { FakeClock } from "./clock.ts";
-import { createDailyWorkReader } from "./dailyWorkReader.ts";
+import { createDailyWorkReader, selectedDay } from "./dailyWorkReader.ts";
 import { createMemoryDailyWorkStore } from "./dailyWorkStore.ts";
 
 const MINUTE_MS = 60_000;
@@ -66,5 +66,31 @@ describe("daily work reader", () => {
     reader.recentWork(7);
 
     expect(reads).toBe(1);
+  });
+});
+
+describe("selectedDay", () => {
+  const work = readerWith({ "2026-08-13": 25 * MINUTE_MS }).recentWork(3);
+
+  it("まだ選んでいないときは今日を返す", () => {
+    expect(selectedDay(work, null).dayKey).toBe("2026-08-14");
+  });
+
+  it("選んだ日を返す", () => {
+    expect(selectedDay(work, "2026-08-13")).toEqual({
+      dayKey: "2026-08-13",
+      ms: 25 * MINUTE_MS,
+    });
+  });
+
+  it("選んだ日が枠から外れていたら今日に戻す", () => {
+    expect(selectedDay(work, "2026-08-01").dayKey).toBe("2026-08-14");
+  });
+
+  it("枠が空でも今日を返す", () => {
+    expect(selectedDay({ todayKey: "2026-08-14", days: [], maxMs: 0 }, null)).toEqual({
+      dayKey: "2026-08-14",
+      ms: 0,
+    });
   });
 });

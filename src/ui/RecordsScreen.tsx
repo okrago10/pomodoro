@@ -1,16 +1,12 @@
 import { useState } from "react";
 import { Button, Surface, Typography } from "@heroui/react";
-import type { RecentDailyWork } from "../timer/dailyWorkReader.ts";
+import { selectedDay, type RecentDailyWork } from "../timer/dailyWorkReader.ts";
 import { formatTodayWork } from "../timer/format.ts";
 import { barHeightPx, selectedDayLabel, weekdayLabel } from "./recordsCopy.ts";
 
 export function RecordsScreen({ work, onBack }: { work: RecentDailyWork; onBack: () => void }) {
   const [pickedKey, setPickedKey] = useState<string | null>(null);
-  // 日付が変わって選んでいた日が 7 日の枠から外れたら、今日に戻す。
-  const selected =
-    work.days.find((day) => day.dayKey === pickedKey) ??
-    work.days.find((day) => day.dayKey === work.todayKey);
-  const selectedKey = selected?.dayKey ?? work.todayKey;
+  const selected = selectedDay(work, pickedKey);
 
   return (
     <Surface variant="secondary" className="flex min-h-dvh flex-col">
@@ -25,16 +21,14 @@ export function RecordsScreen({ work, onBack }: { work: RecentDailyWork; onBack:
 
         <div className="flex flex-col items-center gap-2">
           <Typography color="muted" type="body-sm">
-            {selectedDayLabel(selectedKey, work.todayKey)}
+            {selectedDayLabel(selected.dayKey, work.todayKey)}
           </Typography>
-          <Typography className="text-4xl font-semibold">
-            {formatTodayWork(selected?.ms ?? 0)}
-          </Typography>
+          <Typography className="text-4xl font-semibold">{formatTodayWork(selected.ms)}</Typography>
         </div>
 
         <div className="flex h-[168px] items-end justify-between gap-1">
           {work.days.map((day) => {
-            const isSelected = day.dayKey === selectedKey;
+            const isSelected = day.dayKey === selected.dayKey;
             return (
               <button
                 key={day.dayKey}

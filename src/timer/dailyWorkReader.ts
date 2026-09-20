@@ -25,6 +25,17 @@ export interface DailyWorkReader {
   recentWork(days: number): RecentDailyWork;
 }
 
+/**
+ * 選んでいる日を決める。まだ選んでいないとき、または日付が変わって
+ * 選んだ日が枠から外れたときは今日を返す。
+ */
+export function selectedDay(work: RecentDailyWork, pickedKey: string | null): DailyTotal {
+  return (
+    work.days.find((day) => day.dayKey === pickedKey) ??
+    work.days.find((day) => day.dayKey === work.todayKey) ?? { dayKey: work.todayKey, ms: 0 }
+  );
+}
+
 export function createDailyWorkReader(
   totals: DailyWorkTotals,
   clock: Clock,

@@ -4,6 +4,67 @@ import { phaseEndedCopy } from "./phaseMessage.ts";
 const KEEP_GAIN = 0.0005;
 const BEEP_GAIN = 0.14;
 const BEEP_SECONDS = 0.2;
+const KEEP_ALIVE_HZ = 24;
+const BEEP_HZ = 880;
+
+async function resumeAudio(ctx: AudioContext | null): Promise<void> {
+  if (ctx?.state === "suspended") {
+    await ctx.resume();
+  }
+}
+
+async function askNotificationPermission(): Promise<void> {
+  if (typeof Notification === "undefined") {
+    return;
+  }
+  if (Notification.permission === "default") {
+    await Notification.requestPermission();
+  }
+}
+
+function playBeep(ctx: AudioContext): void {
+  void ctx.resume();
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+  oscillator.frequency.value = BEEP_HZ;
+  gain.gain.value = BEEP_GAIN;
+  oscillator.connect(gain).connect(ctx.destination);
+  oscillator.start();
+  oscillator.stop(ctx.currentTime + BEEP_SECONDS);
+}
+
+function showPhaseNotification(title: string, body: string): void {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") {
+    return;
+  }
+
+  const payload = {
+    body,
+    tag: "pomodoro-phase",
+    data: { url: `${globalThis.location?.pathname ?? "/pomodoro/"}` },
+  };
+
+  const viaConstructor = (): void => {
+    try {
+      const notification = new Notification(title, payload);
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+    } catch {
+      // Some browsers reject Notification in a page context.
+    }
+  };
+
+  if ("serviceWorker" in navigator) {
+    void navigator.serviceWorker.ready
+      .then((registration) => registration.showNotification(title, payload))
+      .catch(viaConstructor);
+    return;
+  }
+
+  viaConstructor();
+}
 
 /** ブラウザの通知・音・振動でフェーズ終了を知らせるアダプター。 */
 export function createWebPhaseFeedback(): PhaseFeedback {
@@ -19,67 +80,10 @@ export function createWebPhaseFeedback(): PhaseFeedback {
     return audioContext;
   }
 
-  function playBeep(): void {
-    const ctx = getAudioContext();
-    if (!ctx) {
-      return;
-    }
-    void ctx.resume();
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.frequency.value = 880;
-    gain.gain.value = BEEP_GAIN;
-    oscillator.connect(gain).connect(ctx.destination);
-    oscillator.start();
-    oscillator.stop(ctx.currentTime + BEEP_SECONDS);
-  }
-
-  function showPhaseNotification(title: string, body: string): void {
-    if (typeof Notification === "undefined" || Notification.permission !== "granted") {
-      return;
-    }
-
-    const payload = {
-      body,
-      tag: "pomodoro-phase",
-      data: { url: `${globalThis.location?.pathname ?? "/pomodoro/"}` },
-    };
-
-    const viaConstructor = (): void => {
-      try {
-        const notification = new Notification(title, payload);
-        notification.onclick = () => {
-          window.focus();
-          notification.close();
-        };
-      } catch {
-        // Some browsers reject Notification in a page context.
-      }
-    };
-
-    if ("serviceWorker" in navigator) {
-      void navigator.serviceWorker.ready
-        .then((registration) => registration.showNotification(title, payload))
-        .catch(viaConstructor);
-      return;
-    }
-
-    viaConstructor();
-  }
-
   return {
     async prepare() {
-      const ctx = getAudioContext();
-      if (ctx?.state === "suspended") {
-        await ctx.resume();
-      }
-
-      if (typeof Notification === "undefined") {
-        return;
-      }
-      if (Notification.permission === "default") {
-        await Notification.requestPermission();
-      }
+      await resumeAudio(getAudioContext());
+      await askNotificationPermission();
     },
 
     startKeepAlive() {
@@ -90,7 +94,7 @@ export function createWebPhaseFeedback(): PhaseFeedback {
       void ctx.resume();
       keepOscillator = ctx.createOscillator();
       keepGain = ctx.createGain();
-      keepOscillator.frequency.value = 24;
+      keepOscillator.frequency.value = KEEP_ALIVE_HZ;
       keepGain.gain.value = KEEP_GAIN;
       keepOscillator.connect(keepGain).connect(ctx.destination);
       keepOscillator.start();
@@ -106,8 +110,11 @@ export function createWebPhaseFeedback(): PhaseFeedback {
 
     announce(endedTag, nextTag) {
       const copy = phaseEndedCopy(endedTag, nextTag);
+      const ctx = getAudioContext();
       navigator.vibrate?.([80, 40, 80]);
-      playBeep();
+      if (ctx) {
+        playBeep(ctx);
+      }
       showPhaseNotification(copy.title, copy.body);
     },
   };
