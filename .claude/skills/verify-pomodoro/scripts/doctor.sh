@@ -4,7 +4,7 @@ set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 RUN=.verify-artifacts/run
 fail() { echo "DOCTOR FAIL: $*" >&2; exit 1; }
-[ -f "$RUN/pid" ] || fail "no $RUN/pid (run launch.sh)"
+[ -f "$RUN/pid" ] && [ -f "$RUN/url" ] || fail "no $RUN/pid or url (run launch.sh)"
 PID=$(cat "$RUN/pid"); URL=$(cat "$RUN/url")
 kill -0 "$PID" 2>/dev/null || fail "pid $PID not alive"
 HTML=$(curl -sf "$URL") || fail "$URL not answering"

@@ -32,7 +32,7 @@ description: pomodoro（iPhone Safari 向け React/Vite の Web タイマー）�
 node .claude/skills/verify-pomodoro/scripts/drive.mjs <timer|phase|reset|records|all>
 ```
 
-- グローバルの `playwright`（`npm root -g`）と `/opt/pw-browsers` の Chromium を使う。`playwright install` はしない。
+- グローバルの `playwright`（`npm root -g`、このコンテナには導入済み。無ければ `npm i -g playwright`）と `/opt/pw-browsers` の Chromium を使う。`playwright install` はしない。
 - viewport 393x852・isMobile・ja-JP・Asia/Tokyo・通知許可済み。
 - 時間は `page.clock`（2026-09-26 10:01 JST で停止）で進める。`runFor(ms)` した分だけ進むので、25 分を実時間で待たない。アプリのコードやテスト専用口は使わない。
 - ハンドル: ボタンは accessible name（`開始` / `一時停止` / `リセット` / `キャンセル` / `リセットする` / `記録` / `戻る`）、残り時間は `p[aria-live=polite]`、記録のバーは `今日 25分` のような aria-label と `aria-pressed`。

@@ -13,6 +13,8 @@ const url = readFileSync(join(root, ".verify-artifacts/run/url"), "utf8").trim()
 const require = createRequire(join(execSync("npm root -g").toString().trim(), "/"));
 const { chromium } = require("playwright");
 
+const STORAGE_KEY = "pomodoro:daily-work-ms"; // src/timer/dailyWorkStore.ts と同じ
+const WORK_MS = 25 * 60_000;
 const scenario = process.argv[2] ?? "timer";
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 const log = [];
@@ -50,7 +52,7 @@ async function withPage(name, fn) {
   try {
     await fn({ page, shot });
   } finally {
-    const storage = await page.evaluate(() => localStorage.getItem("pomodoro:daily-work-ms"));
+    const storage = await page.evaluate((k) => localStorage.getItem(k), STORAGE_KEY);
     writeFileSync(
       join(out, "log.json"),
       JSON.stringify({ url, scenario: name, storage, log }, null, 2),
@@ -61,6 +63,10 @@ async function withPage(name, fn) {
 }
 
 const btn = (page, name) => page.getByRole("button", { name, exact: true });
+const completeWork = async (page) => {
+  await btn(page, "開始").click();
+  await page.clock.runFor(WORK_MS + 1000);
+};
 const remaining = (page) => page.locator("p[aria-live=polite]").innerText();
 
 const scenarios = {
@@ -82,15 +88,15 @@ const scenarios = {
   },
   async phase() {
     await withPage("phase", async ({ page, shot }) => {
-      await btn(page, "開始").click();
-      await page.clock.runFor(25 * 60_000 + 1000);
+      await completeWork(page);
       await shot("01-short-break");
       check("step label", await page.getByText("短い休憩").first().isVisible(), true);
       check("today total", await page.getByText(/^今日 /).innerText(), "今日 25分");
-      const st = await page.evaluate(() =>
-        JSON.parse(localStorage.getItem("pomodoro:daily-work-ms") ?? "{}"),
+      const stored = await page.evaluate(
+        (k) => JSON.parse(localStorage.getItem(k) ?? "{}"),
+        STORAGE_KEY,
       );
-      check("stored ms", st["2026-09-26"], (v) => v >= 25 * 60_000);
+      check("stored ms", stored["2026-09-26"], (v) => v >= WORK_MS);
     });
   },
   async reset() {
@@ -112,8 +118,7 @@ const scenarios = {
   },
   async records() {
     await withPage("records", async ({ page, shot }) => {
-      await btn(page, "開始").click();
-      await page.clock.runFor(25 * 60_000 + 1000);
+      await completeWork(page);
       await btn(page, "記録").click();
       await btn(page, "戻る").waitFor();
       await shot("01-records");
@@ -138,5 +143,10 @@ const scenarios = {
 const names = scenario === "all" ? Object.keys(scenarios) : [scenario];
 for (const n of names) {
   if (!scenarios[n]) throw new Error(`unknown scenario: ${n}`);
-  await scenarios[n]();
+  try {
+    await scenarios[n]();
+  } catch (e) {
+    console.log(`FAIL ${n}: ${e}`);
+    process.exitCode = 1;
+  }
 }

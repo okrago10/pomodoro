@@ -17,4 +17,7 @@ for _ in $(seq 1 60); do
   if curl -sf "$URL" >/dev/null; then echo "ready: $URL pid=$(cat "$RUN/pid")"; exit 0; fi
   sleep 0.5
 done
-echo "vite did not become ready; see $RUN/vite.log" >&2; exit 1
+echo "vite did not become ready; see $RUN/vite.log" >&2
+kill -- "-$(cat "$RUN/pid")" 2>/dev/null || true
+rm -f "$RUN/pid" "$RUN/url"
+exit 1
