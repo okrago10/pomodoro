@@ -19,10 +19,10 @@ open にしたあと `## コードレビュー結果` / `## セキュリティ�
 検索例:
 
 ```bash
-gh issue list --state open --limit 50 --json number,title,url
+gh api "repos/{owner}/{repo}/issues?state=open&per_page=100"
 ```
 
-`[loop-report]` / `[loop-halt]` で filter する。
+`pull_request` を持つ要素（PR）を除き、`author_association` が `OWNER` / `MEMBER` / `COLLABORATOR` のものだけを `[loop-report]` / `[loop-halt]` で filter する。public リポジトリなので、第三者が立てた同名の issue は数えない。
 
 ## レポート本文テンプレ
 
