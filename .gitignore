@@ -6,3 +6,4 @@ dist/
 .heroui-docs/
 # fallow のローカルキャッシュ（npm run audit / audit:all で生成。コミットしない）
 .fallow/
+.verify-artifacts/
