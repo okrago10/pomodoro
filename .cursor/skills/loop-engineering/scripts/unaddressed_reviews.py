@@ -2,6 +2,8 @@
 """List unaddressed コードレビュー / セキュリティレビュー comments on open PRs.
 
 A review comment is unaddressed when it is newer than the PR head commit.
+Only comments from the repository side (owner / member / collaborator) count:
+the repo is public, so anyone can post a comment that looks like a review.
 Exit 4 if GitHub cannot be queried (fail closed). Exit 0 otherwise.
 """
 from __future__ import annotations
@@ -31,6 +33,22 @@ def is_review_comment(body: str) -> bool:
     )
 
 
+# GitHub の author_association。これ以外（NONE / CONTRIBUTOR など）は外部の投稿として無視する。
+TRUSTED_ASSOCIATIONS = frozenset({"OWNER", "MEMBER", "COLLABORATOR"})
+
+
+def is_trusted_author(comment: dict) -> bool:
+    return comment.get("author_association") in TRUSTED_ASSOCIATIONS
+
+
+def review_comments(comments: list) -> list:
+    return [
+        c
+        for c in comments
+        if is_trusted_author(c) and is_review_comment(str(c.get("body") or ""))
+    ]
+
+
 def main() -> int:
     repo = gh_json(["repo", "view", "--json", "nameWithOwner"])
     if not isinstance(repo, dict):
@@ -46,13 +64,21 @@ def main() -> int:
     waiting: list[int] = []
     for pr in prs:
         n = pr["number"]
-        comments = gh_json(["api", f"repos/{name}/issues/{n}/comments"])
+        # 既定は 30 件/ページ。外部のコメントで本物のレビューが押し出されないよう全ページ読む。
+        pages = gh_json(
+            ["api", "--paginate", "--slurp", f"repos/{name}/issues/{n}/comments?per_page=100"]
+        )
+        comments = (
+            [c for page in pages for c in page]
+            if isinstance(pages, list) and all(isinstance(page, list) for page in pages)
+            else None
+        )
         commit = gh_json(["api", f"repos/{name}/commits/{pr['headRefOid']}"])
         if not isinstance(comments, list) or not isinstance(commit, dict):
             print("decision=GH_ERROR")
             return 4
         head = commit["commit"]["committer"]["date"]
-        reviews = [c for c in comments if is_review_comment(str(c.get("body") or ""))]
+        reviews = review_comments(comments)
         if not reviews:
             print(f"pr #{n} {pr.get('url', '')} no-review-yet")
             waiting.append(n)

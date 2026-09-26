@@ -16,12 +16,14 @@ fi
 
 gh_err="$(mktemp)"
 set +e
-json="$(gh issue list --state open --limit 100 --json number,title,url 2>"$gh_err")"
+# author_association を得るため REST を使う。gh issue list の JSON には含まれない。
+# この API は PR も返すので、PR に枠を取られて halt を見落とさないよう全ページ読む（--slurp でページの配列になる）。
+json="$(gh api --paginate --slurp "repos/{owner}/{repo}/issues?state=open&per_page=100" 2>"$gh_err")"
 gh_status=$?
 set -e
 if [[ $gh_status -ne 0 ]]; then
   echo "decision=GH_ERROR"
-  echo "gh issue list failed (fail closed; do not PROCEED)"
+  echo "gh api issues failed (fail closed; do not PROCEED)"
   cat "$gh_err" >&2 || true
   rm -f "$gh_err"
   exit 4
@@ -39,13 +41,24 @@ except json.JSONDecodeError as e:
     print("invalid gh json: %s" % e)
     sys.exit(4)
 
-if not isinstance(issues, list):
+if not isinstance(issues, list) or not all(isinstance(page, list) for page in issues):
     print("decision=GH_ERROR")
-    print("gh json is not a list")
+    print("gh json is not a list of pages")
     sys.exit(4)
+issues = [i for page in issues for i in page]
+
+# public リポジトリなので誰でも issue を立てられる。リポジトリ側の人が立てたものだけ数える。
+TRUSTED = {"OWNER", "MEMBER", "COLLABORATOR"}
+trusted = [
+    i
+    for i in issues
+    if isinstance(i, dict)
+    and "pull_request" not in i
+    and i.get("author_association") in TRUSTED
+]
 
 def titles(prefix):
-    return [i for i in issues if str(i.get("title") or "").startswith(prefix)]
+    return [i for i in trusted if str(i.get("title") or "").startswith(prefix)]
 
 halts = titles("[loop-halt]")
 reports = titles("[loop-report]")
@@ -53,10 +66,10 @@ reports = titles("[loop-report]")
 print("halt_file=%s" % halt_file)
 print("open_loop_halt=%s" % len(halts))
 for i in halts:
-    print("  halt #%s %s %s" % (i["number"], i["title"], i.get("url", "")))
+    print("  halt #%s %s %s" % (i["number"], i["title"], i.get("html_url", "")))
 print("open_loop_report=%s" % len(reports))
 for i in reports:
-    print("  report #%s %s %s" % (i["number"], i["title"], i.get("url", "")))
+    print("  report #%s %s %s" % (i["number"], i["title"], i.get("html_url", "")))
 
 if halt_file or halts:
     print("decision=HALT")
