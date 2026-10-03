@@ -86,21 +86,21 @@ export function createTimerEngine(
     todayWorkMs = storedTotal(store, calendar.dayKey(now));
   }
 
-  function current(): TimerSnapshot {
+  function toSnapshot(): TimerSnapshot {
     return { position, remainingMs, status, todayWorkMs };
   }
 
   /** now まで追いついた状態を返す。読むだけでも作業時間の記録とフェーズの遷移が進む。 */
   function tick(): TimerSnapshot {
     advanceTo(clock.now());
-    return current();
+    return toSnapshot();
   }
 
   function start(): TimerSnapshot {
     const now = clock.now();
     advanceTo(now);
     if (status === "running") {
-      return current();
+      return toSnapshot();
     }
     if (status === "idle") {
       remainingMs = phaseDurationMs(position);
@@ -108,7 +108,7 @@ export function createTimerEngine(
     deadlineMs = now + remainingMs;
     status = "running";
     cursorMs = now;
-    return current();
+    return toSnapshot();
   }
 
   function pause(): TimerSnapshot {
@@ -117,7 +117,7 @@ export function createTimerEngine(
       deadlineMs = null;
       status = "paused";
     }
-    return current();
+    return toSnapshot();
   }
 
   /** 進行中のサイクルは、まだ知らせていない遷移ごと破棄する。記録した作業時間は残す。 */
@@ -128,7 +128,7 @@ export function createTimerEngine(
     deadlineMs = null;
     remainingMs = phaseDurationMs(position);
     pendingTransitions = [];
-    return current();
+    return toSnapshot();
   }
 
   function takeTransitions(): readonly PhaseTransition[] {
