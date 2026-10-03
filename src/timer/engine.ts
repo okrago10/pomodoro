@@ -47,112 +47,88 @@ export function createTimerEngine(
   let deadlineMs: number | null = null;
   let remainingMs = phaseDurationMs(position);
   let todayWorkMs = storedTotal(store, calendar.dayKey(clock.now()));
+  /** 経過をどこまで反映したか。動いている間だけ前に進む。 */
   let cursorMs = clock.now();
   let pendingTransitions: PhaseTransition[] = [];
 
-  function applyElapsed(from: number, to: number, work: boolean): void {
-    if (to <= from) {
-      return;
-    }
-    let start = from;
-    while (start < to) {
-      const sliceEnd = Math.min(to, calendar.startOfNextDay(start));
-      const key = calendar.dayKey(start);
+  /** cursorMs から until までを今のフェーズの経過として記録する。日をまたぐぶんは日ごとに分ける。 */
+  function accrue(until: number): void {
+    const work = isWorkPhase(position.phase);
+    while (cursorMs < until) {
+      const sliceEnd = Math.min(until, calendar.startOfNextDay(cursorMs));
       if (work) {
         try {
-          store.add(key, sliceEnd - start);
+          store.add(calendar.dayKey(cursorMs), sliceEnd - cursorMs);
         } catch {
           // Persistence failures must not stop the timer.
         }
       }
-      start = sliceEnd;
+      cursorMs = sliceEnd;
     }
   }
 
-  function rollover(now: number): void {
+  /**
+   * now まで追いつく。どの操作もまずここを通る。
+   * 動いている間は、越えた締切ごとにフェーズを進めて遷移をためる。
+   */
+  function advanceTo(now: number): void {
+    if (status === "running" && deadlineMs !== null) {
+      while (now >= deadlineMs) {
+        const from = position;
+        accrue(deadlineMs);
+        position = Effect.runSync(nextPhase(position));
+        pendingTransitions.push({ from, to: position });
+        deadlineMs += phaseDurationMs(position);
+      }
+      accrue(now);
+      remainingMs = deadlineMs - now;
+    }
     todayWorkMs = storedTotal(store, calendar.dayKey(now));
   }
 
-  function snapshot(): TimerSnapshot {
-    const now = clock.now();
-    if (status === "running" && deadlineMs !== null) {
-      const until = Math.min(now, deadlineMs);
-      applyElapsed(cursorMs, until, isWorkPhase(position.phase));
-      cursorMs = until;
-      remainingMs = Math.max(0, deadlineMs - now);
-    }
-    rollover(now);
+  function current(): TimerSnapshot {
     return { position, remainingMs, status, todayWorkMs };
   }
 
+  /** now まで追いついた状態を返す。読むだけでも作業時間の記録とフェーズの遷移が進む。 */
+  function tick(): TimerSnapshot {
+    advanceTo(clock.now());
+    return current();
+  }
+
   function start(): TimerSnapshot {
-    if (status === "running") {
-      return snapshot();
-    }
     const now = clock.now();
-    rollover(now);
+    advanceTo(now);
+    if (status === "running") {
+      return current();
+    }
     if (status === "idle") {
       remainingMs = phaseDurationMs(position);
     }
     deadlineMs = now + remainingMs;
     status = "running";
     cursorMs = now;
-    return snapshot();
+    return current();
   }
 
   function pause(): TimerSnapshot {
-    if (status !== "running") {
-      return snapshot();
+    advanceTo(clock.now());
+    if (status === "running") {
+      deadlineMs = null;
+      status = "paused";
     }
-    const now = clock.now();
-    const end = deadlineMs ?? now;
-    const until = Math.min(now, end);
-    applyElapsed(cursorMs, until, isWorkPhase(position.phase));
-    cursorMs = now;
-    remainingMs = Math.max(0, end - now);
-    deadlineMs = null;
-    status = "paused";
-    rollover(now);
-    return { position, remainingMs, status, todayWorkMs };
+    return current();
   }
 
+  /** 進行中のサイクルは、まだ知らせていない遷移ごと破棄する。記録した作業時間は残す。 */
   function reset(): TimerSnapshot {
-    const now = clock.now();
-    if (status === "running") {
-      const end = deadlineMs ?? now;
-      const until = Math.min(now, end);
-      applyElapsed(cursorMs, until, isWorkPhase(position.phase));
-    }
-    rollover(now);
+    advanceTo(clock.now());
     position = initialCyclePosition;
     status = "idle";
     deadlineMs = null;
     remainingMs = phaseDurationMs(position);
-    cursorMs = now;
-    return { position, remainingMs, status, todayWorkMs };
-  }
-
-  function tick(): TimerSnapshot {
-    if (status !== "running" || deadlineMs === null) {
-      return snapshot();
-    }
-
-    const now = clock.now();
-    let nextDeadline: number = deadlineMs;
-    while (now >= nextDeadline) {
-      const from = position;
-      applyElapsed(cursorMs, nextDeadline, isWorkPhase(position.phase));
-      position = Effect.runSync(nextPhase(position));
-      pendingTransitions.push({ from, to: position });
-      cursorMs = nextDeadline;
-      nextDeadline += phaseDurationMs(position);
-    }
-    applyElapsed(cursorMs, now, isWorkPhase(position.phase));
-    cursorMs = now;
-    deadlineMs = nextDeadline;
-    remainingMs = Math.max(0, nextDeadline - now);
-    rollover(now);
-    return { position, remainingMs, status, todayWorkMs };
+    pendingTransitions = [];
+    return current();
   }
 
   function takeTransitions(): readonly PhaseTransition[] {
@@ -165,5 +141,5 @@ export function createTimerEngine(
     return status === "running" ? deadlineMs : null;
   }
 
-  return { snapshot, start, pause, reset, tick, takeTransitions, runningDeadlineMs };
+  return { start, pause, reset, tick, takeTransitions, runningDeadlineMs };
 }
