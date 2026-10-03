@@ -51,9 +51,8 @@ export function createTimerEngine(
   let cursorMs = clock.now();
   let pendingTransitions: PhaseTransition[] = [];
 
-  /** cursorMs から until までを今のフェーズの経過として記録する。日をまたぐぶんは日ごとに分ける。 */
-  function accrue(until: number): void {
-    const work = isWorkPhase(position.phase);
+  /** cursorMs から until までの経過を進める。作業なら日をまたぐぶんを日ごとに分けて記録する。 */
+  function accrue(until: number, work: boolean): void {
     while (cursorMs < until) {
       const sliceEnd = Math.min(until, calendar.startOfNextDay(cursorMs));
       if (work) {
@@ -75,12 +74,12 @@ export function createTimerEngine(
     if (status === "running" && deadlineMs !== null) {
       while (now >= deadlineMs) {
         const from = position;
-        accrue(deadlineMs);
+        accrue(deadlineMs, isWorkPhase(from.phase));
         position = Effect.runSync(nextPhase(position));
         pendingTransitions.push({ from, to: position });
         deadlineMs += phaseDurationMs(position);
       }
-      accrue(now);
+      accrue(now, isWorkPhase(position.phase));
       remainingMs = deadlineMs - now;
     }
     todayWorkMs = storedTotal(store, calendar.dayKey(now));
