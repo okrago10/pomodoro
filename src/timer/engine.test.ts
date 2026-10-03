@@ -10,7 +10,7 @@ const MINUTE = 60_000;
 describe("timer engine", () => {
   it("starts idle on a 25-minute work phase", () => {
     const engine = createTimerEngine(new FakeClock());
-    const snap = engine.snapshot();
+    const snap = engine.tick();
     expect(snap.status).toBe("idle");
     expect(snap.position.phase._tag).toBe("Work");
     expect(snap.remainingMs).toBe(25 * MINUTE);
@@ -33,12 +33,12 @@ describe("timer engine", () => {
     clock.advance(40 * SECOND);
     engine.tick();
     engine.pause();
-    const pausedRemaining = engine.snapshot().remainingMs;
+    const pausedRemaining = engine.tick().remainingMs;
 
     clock.advance(10 * MINUTE);
     expect(engine.tick().remainingMs).toBe(pausedRemaining);
-    expect(engine.snapshot().status).toBe("paused");
-    expect(engine.snapshot().position.phase._tag).toBe("Work");
+    expect(engine.tick().status).toBe("paused");
+    expect(engine.tick().position.phase._tag).toBe("Work");
 
     engine.start();
     clock.advance(5 * SECOND);
@@ -88,7 +88,7 @@ describe("timer engine", () => {
     engine.start();
     clock.advance(25 * MINUTE + 90 * SECOND);
     engine.tick();
-    expect(engine.snapshot().position.phase._tag).toBe("ShortBreak");
+    expect(engine.tick().position.phase._tag).toBe("ShortBreak");
 
     const snap = engine.reset();
     expect(snap.status).toBe("idle");
@@ -98,7 +98,21 @@ describe("timer engine", () => {
 
     clock.advance(MINUTE);
     expect(engine.tick().remainingMs).toBe(25 * MINUTE);
-    expect(engine.snapshot().status).toBe("idle");
+    expect(engine.tick().status).toBe("idle");
+  });
+
+  it("moves on to the next phase when paused after the deadline", () => {
+    const clock = new FakeClock();
+    const engine = createTimerEngine(clock, utcCalendar);
+    engine.start();
+    clock.advance(25 * MINUTE + 90 * SECOND);
+
+    const snap = engine.pause();
+    expect(snap.status).toBe("paused");
+    expect(snap.position.phase._tag).toBe("ShortBreak");
+    expect(snap.remainingMs).toBe(5 * MINUTE - 90 * SECOND);
+    expect(snap.todayWorkMs).toBe(25 * MINUTE);
+    expect(engine.takeTransitions().map((item) => item.to.phase._tag)).toEqual(["ShortBreak"]);
   });
 
   it("keeps phase aligned to the original deadline when the clock jumps", () => {
@@ -145,7 +159,7 @@ describe("timer engine", () => {
     clock.advance(10 * MINUTE);
     engine.tick();
     engine.pause();
-    expect(engine.snapshot().todayWorkMs).toBe(10 * MINUTE);
+    expect(engine.tick().todayWorkMs).toBe(10 * MINUTE);
 
     clock.advance(20 * MINUTE);
     expect(engine.tick().todayWorkMs).toBe(10 * MINUTE);
@@ -172,6 +186,19 @@ describe("timer engine", () => {
     const snap = engine.reset();
     expect(snap.status).toBe("idle");
     expect(snap.todayWorkMs).toBe(8 * MINUTE);
+  });
+
+  it("keeps all work from a multi-phase clock jump when reset, without reporting its transitions", () => {
+    const clock = new FakeClock();
+    const engine = createTimerEngine(clock, utcCalendar);
+    engine.start();
+    clock.advance(25 * MINUTE + 5 * MINUTE + 25 * MINUTE + 2 * MINUTE);
+
+    const snap = engine.reset();
+    expect(snap.status).toBe("idle");
+    expect(snap.position.stepIndex).toBe(0);
+    expect(snap.todayWorkMs).toBe(50 * MINUTE);
+    expect(engine.takeTransitions()).toEqual([]);
   });
 
   it("resets today's total when the calendar day changes", () => {
@@ -208,8 +235,8 @@ describe("timer engine", () => {
     first.pause();
 
     const second = createTimerEngine(clock, utcCalendar, store);
-    expect(second.snapshot().todayWorkMs).toBe(12 * MINUTE);
-    expect(second.snapshot().status).toBe("idle");
+    expect(second.tick().todayWorkMs).toBe(12 * MINUTE);
+    expect(second.tick().status).toBe("idle");
   });
 
   it("keeps running when persistence throws", () => {

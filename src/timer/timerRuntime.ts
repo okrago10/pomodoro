@@ -50,7 +50,7 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
   const engine = createTimerEngine(clock, calendar, store);
   const listeners = new Set<() => void>();
 
-  let current = engine.snapshot();
+  let current = engine.tick();
   let intervalId: number | null = null;
   let deadlineId: number | null = null;
   /** deadlineId のタイマーが狙っている締切。 */
@@ -104,8 +104,11 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
     );
   }
 
-  function sync(): void {
-    const next = engine.tick();
+  /**
+   * engine の操作のあとは必ずここを通す。どの操作の途中で締切を越えても、
+   * たまった遷移をその場で知らせ、次の締切を張り直す。
+   */
+  function settle(next: TimerSnapshot): void {
     const transitions = engine.takeTransitions();
     publish(next);
     for (const transition of transitions) {
@@ -114,6 +117,10 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
       });
     }
     scheduleDeadline();
+  }
+
+  function sync(): void {
+    settle(engine.tick());
   }
 
   function stopTimers(): void {
@@ -151,24 +158,21 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
       tryFeedback(() => {
         feedback.startKeepAlive();
       });
-      publish(engine.start());
-      scheduleDeadline();
+      settle(engine.start());
     },
 
     pause() {
       tryFeedback(() => {
         feedback.stopKeepAlive();
       });
-      publish(engine.pause());
-      scheduleDeadline();
+      settle(engine.pause());
     },
 
     reset() {
       tryFeedback(() => {
         feedback.stopKeepAlive();
       });
-      publish(engine.reset());
-      scheduleDeadline();
+      settle(engine.reset());
     },
 
     sync,

@@ -90,6 +90,44 @@ describe("timer runtime の駆動", () => {
     expect(runtime.getSnapshot().position.phase._tag).toBe("LongBreak");
   });
 
+  it("締切を過ぎてから一時停止しても、その場で知らせて次のフェーズで止まる", async () => {
+    const { runtime, clock, feedback } = setup();
+
+    await runtime.start();
+    clock.advance(WORK_MS + 1000);
+    runtime.pause();
+
+    expect(feedback.announcements).toEqual([{ endedTag: "Work", nextTag: "ShortBreak" }]);
+    expect(runtime.getSnapshot().status).toBe("paused");
+    expect(runtime.getSnapshot().position.phase._tag).toBe("ShortBreak");
+    expect(runtime.getSnapshot().remainingMs).toBe(SHORT_BREAK_MS - 1000);
+  });
+
+  it("動いている間に start を呼んでも、越えた締切をその場で知らせる", async () => {
+    const { runtime, clock, feedback } = setup();
+
+    await runtime.start();
+    clock.advance(WORK_MS + 1000);
+    await runtime.start();
+
+    expect(feedback.announcements).toEqual([{ endedTag: "Work", nextTag: "ShortBreak" }]);
+    expect(runtime.getSnapshot().status).toBe("running");
+    expect(runtime.getSnapshot().remainingMs).toBe(SHORT_BREAK_MS - 1000);
+  });
+
+  it("リセットで破棄したサイクルの遷移は知らせない", async () => {
+    const { runtime, clock, scheduler, feedback } = setup();
+
+    await runtime.start();
+    clock.advance(WORK_MS + 1000);
+    runtime.reset();
+    scheduler.advance(1000);
+
+    expect(feedback.announcements).toEqual([]);
+    expect(runtime.getSnapshot().status).toBe("idle");
+    expect(runtime.getSnapshot().todayWorkMs).toBe(WORK_MS);
+  });
+
   it("締切が同じ間はそのタイマーを張り替えない", async () => {
     let timeouts = 0;
     const { runtime, scheduler } = setup((base) => ({
