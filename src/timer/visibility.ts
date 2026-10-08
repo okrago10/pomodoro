@@ -30,13 +30,9 @@ export function createManualVisibility(): ManualVisibility {
   const listeners = new Set<() => void>();
   return {
     onVisible(listener) {
-      // 同じ関数を 2 回登録しても別々に数えられるように包む。
-      const entry = (): void => {
-        listener();
-      };
-      listeners.add(entry);
+      listeners.add(listener);
       return () => {
-        listeners.delete(entry);
+        listeners.delete(listener);
       };
     },
     show() {

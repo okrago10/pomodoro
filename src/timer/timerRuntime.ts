@@ -101,7 +101,7 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
       () => {
         deadlineId = null;
         scheduledFor = null;
-        sync();
+        catchUp();
       },
       Math.max(0, deadline - clock.now()) + DEADLINE_MARGIN_MS,
     );
@@ -122,7 +122,7 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
     scheduleDeadline();
   }
 
-  function sync(): void {
+  function catchUp(): void {
     settle(engine.tick());
   }
 
@@ -141,9 +141,9 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
 
     subscribe(listener) {
       listeners.add(listener);
-      intervalId ??= scheduler.setInterval(sync, TICK_MS);
-      stopWatchingVisibility ??= visibility.onVisible(sync);
-      sync();
+      intervalId ??= scheduler.setInterval(catchUp, TICK_MS);
+      stopWatchingVisibility ??= visibility.onVisible(catchUp);
+      catchUp();
       return () => {
         listeners.delete(listener);
         if (listeners.size === 0) {
