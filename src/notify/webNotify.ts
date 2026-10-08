@@ -1,5 +1,5 @@
 import type { PhaseFeedback } from "./phaseFeedback.ts";
-import { phaseEndedCopy } from "../ui/cycleCopy.ts";
+import { phaseEndedCopy } from "./phaseMessage.ts";
 
 const KEEP_GAIN = 0.0005;
 const BEEP_GAIN = 0.14;

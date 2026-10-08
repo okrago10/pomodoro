@@ -50,6 +50,14 @@ export function isBreakPhase(phase: PomodoroPhase): boolean {
   return phase._tag !== "Work";
 }
 
+/** その作業がサイクルの中で何回目か。CYCLE の並びから数える。休憩では 0。 */
+export function workRound(position: CyclePosition): number {
+  if (!isWorkPhase(position.phase)) {
+    return 0;
+  }
+  return CYCLE.slice(0, position.stepIndex + 1).filter(isWorkPhase).length;
+}
+
 export const nextPhase = (current: CyclePosition): Effect.Effect<CyclePosition> =>
   Effect.sync(() => {
     const stepIndex = ((current.stepIndex + 1) % CYCLE.length) as CycleStepIndex;

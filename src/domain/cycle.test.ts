@@ -6,6 +6,7 @@ import {
   isWorkPhase,
   nextPhase,
   phaseDurationMinutes,
+  workRound,
 } from "./cycle.ts";
 import type { CyclePosition } from "./cycle.ts";
 
@@ -43,5 +44,13 @@ describe("pomodoro cycle", () => {
     expect(nextCycleWork.phase._tag).toBe("Work");
     expect(phaseDurationMinutes(nextCycleWork.phase)).toBe(25);
     expect(nextCycleWork.stepIndex).toBe(0);
+  });
+
+  it("counts which work of the cycle a position is", () => {
+    const second = advance(advance(initialCyclePosition));
+    expect(workRound(initialCyclePosition)).toBe(1);
+    expect(workRound(advance(initialCyclePosition))).toBe(0);
+    expect(workRound(second)).toBe(2);
+    expect(workRound(advance(second))).toBe(0);
   });
 });
