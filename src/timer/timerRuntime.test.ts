@@ -6,6 +6,7 @@ import { createMemoryDailyWorkStore } from "./dailyWorkStore.ts";
 import type { TimerSnapshot } from "./engine.ts";
 import { createManualScheduler, type ManualScheduler } from "./scheduler.ts";
 import { createTimerRuntime } from "./timerRuntime.ts";
+import { createManualVisibility } from "./visibility.ts";
 
 const MINUTE_MS = 60_000;
 const WORK_MS = 25 * MINUTE_MS;
@@ -16,12 +17,14 @@ function setup(wrapScheduler: (base: ManualScheduler) => ManualScheduler = (base
   const scheduler = wrapScheduler(createManualScheduler(clock));
   const feedback = createRecordingPhaseFeedback();
   const store = createMemoryDailyWorkStore();
+  const visibility = createManualVisibility();
   const runtime = createTimerRuntime({
     clock,
     calendar: utcCalendar,
     store,
     feedback,
     scheduler,
+    visibility,
   });
 
   const changes: TimerSnapshot[] = [];
@@ -29,7 +32,7 @@ function setup(wrapScheduler: (base: ManualScheduler) => ManualScheduler = (base
     changes.push(runtime.getSnapshot());
   });
 
-  return { clock, scheduler, feedback, store, runtime, changes, unsubscribe };
+  return { clock, scheduler, feedback, store, visibility, runtime, changes, unsubscribe };
 }
 
 describe("timer runtime の駆動", () => {
@@ -53,15 +56,30 @@ describe("timer runtime の駆動", () => {
     expect(runtime.getSnapshot().status).toBe("idle");
   });
 
-  it("購読をやめるとタイマーを手放す", async () => {
-    const { runtime, scheduler, unsubscribe } = setup();
+  it("購読をやめるとタイマーと前面復帰の監視を手放す", async () => {
+    const { runtime, scheduler, visibility, unsubscribe } = setup();
 
     await runtime.start();
     expect(scheduler.pending()).toBeGreaterThan(0);
+    expect(visibility.listening()).toBe(1);
 
     unsubscribe();
 
     expect(scheduler.pending()).toBe(0);
+    expect(visibility.listening()).toBe(0);
+  });
+
+  it("購読者が増えても前面復帰の監視は 1 つだけ", () => {
+    const { runtime, visibility, unsubscribe } = setup();
+
+    const second = runtime.subscribe(() => {});
+    expect(visibility.listening()).toBe(1);
+
+    unsubscribe();
+    expect(visibility.listening()).toBe(1);
+
+    second();
+    expect(visibility.listening()).toBe(0);
   });
 
   it("締切を過ぎたら次のフェーズへ進み、1 回だけ知らせる", async () => {
@@ -75,12 +93,12 @@ describe("timer runtime の駆動", () => {
     expect(runtime.getSnapshot().remainingMs).toBe(SHORT_BREAK_MS);
   });
 
-  it("背面にいる間に時計が飛んでも、sync で飛んだ順に知らせる", async () => {
-    const { runtime, clock, feedback } = setup();
+  it("背面にいる間に時計が飛んでも、前面に戻ったときに飛んだ順に知らせる", async () => {
+    const { runtime, clock, visibility, feedback } = setup();
 
     await runtime.start();
     clock.advance(55 * MINUTE_MS);
-    runtime.sync();
+    visibility.show();
 
     expect(feedback.announcements).toEqual([
       { endedTag: "Work", nextTag: "ShortBreak" },
@@ -221,6 +239,7 @@ describe("timer runtime と通知の順序", () => {
       store: createMemoryDailyWorkStore(),
       feedback: broken,
       scheduler,
+      visibility: createManualVisibility(),
     });
     const unsubscribe = runtime.subscribe(() => {});
 

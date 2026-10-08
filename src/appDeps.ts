@@ -5,6 +5,7 @@ import { createDailyWorkReader, type DailyWorkReader } from "./timer/dailyWorkRe
 import { createLocalStorageDailyWorkStore } from "./timer/dailyWorkStore.ts";
 import { windowScheduler } from "./timer/scheduler.ts";
 import { createTimerRuntime, type TimerRuntime } from "./timer/timerRuntime.ts";
+import { documentVisibility } from "./timer/visibility.ts";
 
 export interface AppDeps {
   readonly timer: TimerRuntime;
@@ -22,6 +23,7 @@ export function createWebAppDeps(): AppDeps {
       store,
       feedback: createWebPhaseFeedback(),
       scheduler: windowScheduler,
+      visibility: documentVisibility,
     }),
     records: createDailyWorkReader(store, systemClock, localCalendar),
   };

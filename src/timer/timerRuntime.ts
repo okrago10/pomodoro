@@ -4,6 +4,7 @@ import type { Clock } from "./clock.ts";
 import type { DailyWorkStore } from "./dailyWorkStore.ts";
 import { createTimerEngine, type TimerSnapshot } from "./engine.ts";
 import type { Scheduler } from "./scheduler.ts";
+import type { Visibility } from "./visibility.ts";
 
 const TICK_MS = 250;
 /** 締切ちょうどに起こすと取りこぼすことがあるので、少し後ろで起こす。 */
@@ -15,6 +16,7 @@ export interface TimerRuntimeDeps {
   readonly store: DailyWorkStore;
   readonly feedback: PhaseFeedback;
   readonly scheduler: Scheduler;
+  readonly visibility: Visibility;
 }
 
 export interface TimerRuntime {
@@ -24,8 +26,6 @@ export interface TimerRuntime {
   start(): Promise<void>;
   pause(): void;
   reset(): void;
-  /** 画面が前面に戻ったときなど、外から時計に追いつかせる。 */
-  sync(): void;
 }
 
 function sameSnapshot(a: TimerSnapshot, b: TimerSnapshot): boolean {
@@ -39,20 +39,22 @@ function sameSnapshot(a: TimerSnapshot, b: TimerSnapshot): boolean {
 }
 
 /**
- * タイマーの駆動を React の外で持つ。250ms ごとの追いつきと、
- * 締切に合わせた 1 回きりの起床の両方をここで見る。
+ * タイマーの駆動を React の外で持つ。250ms ごとの追いつき、
+ * 締切に合わせた 1 回きりの起床、画面が前面に戻ったときの追いつきを
+ * すべてここで見る。
  *
- * タイマーと keep-alive を握るのは購読者がいる間だけで、最後の購読が
- * 外れたら手放す。後片付けの入口は購読の解除ひとつだけにしてある。
+ * タイマー・前面復帰の監視・keep-alive を握るのは購読者がいる間だけで、
+ * 最後の購読が外れたら手放す。後片付けの入口は購読の解除ひとつだけにしてある。
  */
 export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
-  const { clock, calendar, store, feedback, scheduler } = deps;
+  const { clock, calendar, store, feedback, scheduler, visibility } = deps;
   const engine = createTimerEngine(clock, calendar, store);
   const listeners = new Set<() => void>();
 
   let current = engine.tick();
   let intervalId: number | null = null;
   let deadlineId: number | null = null;
+  let stopWatchingVisibility: (() => void) | null = null;
   /** deadlineId のタイマーが狙っている締切。 */
   let scheduledFor: number | null = null;
 
@@ -123,12 +125,14 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
     settle(engine.tick());
   }
 
-  function stopTimers(): void {
+  function stopDriving(): void {
     if (intervalId !== null) {
       scheduler.clearInterval(intervalId);
       intervalId = null;
     }
     clearDeadline();
+    stopWatchingVisibility?.();
+    stopWatchingVisibility = null;
   }
 
   return {
@@ -137,11 +141,12 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
     subscribe(listener) {
       listeners.add(listener);
       intervalId ??= scheduler.setInterval(sync, TICK_MS);
+      stopWatchingVisibility ??= visibility.onVisible(sync);
       sync();
       return () => {
         listeners.delete(listener);
         if (listeners.size === 0) {
-          stopTimers();
+          stopDriving();
           tryFeedback(() => {
             feedback.stopKeepAlive();
           });
@@ -174,7 +179,5 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
       });
       settle(engine.reset());
     },
-
-    sync,
   };
 }
