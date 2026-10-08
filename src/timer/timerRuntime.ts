@@ -113,7 +113,7 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
     publish(next);
     for (const transition of transitions) {
       tryFeedback(() => {
-        feedback.announce(transition.from.phase._tag, transition.to.phase._tag);
+        feedback.announce(transition.from.phase, transition.to.phase);
       });
     }
     scheduleDeadline();

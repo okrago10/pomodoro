@@ -1,5 +1,5 @@
 import type { PhaseFeedback } from "./phaseFeedback.ts";
-import { phaseEndedCopy } from "./phaseMessage.ts";
+import { phaseEndedCopy } from "../ui/cycleCopy.ts";
 
 const KEEP_GAIN = 0.0005;
 const BEEP_GAIN = 0.14;
@@ -108,8 +108,8 @@ export function createWebPhaseFeedback(): PhaseFeedback {
       keepGain = null;
     },
 
-    announce(endedTag, nextTag) {
-      const copy = phaseEndedCopy(endedTag, nextTag);
+    announce(ended, next) {
+      const copy = phaseEndedCopy(ended, next);
       const ctx = getAudioContext();
       navigator.vibrate?.([80, 40, 80]);
       if (ctx) {
