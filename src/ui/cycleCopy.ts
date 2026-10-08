@@ -1,4 +1,4 @@
-import { isWorkPhase, workRound, type CyclePosition, type PomodoroPhase } from "../domain/cycle.ts";
+import { workOrdinal, type CyclePosition, type PomodoroPhase } from "../domain/cycle.ts";
 import type { TimerStatus } from "../timer/engine.ts";
 
 /** フェーズの呼び名はここだけに置く。画面も通知もこれを使う。 */
@@ -15,7 +15,8 @@ export function phaseName(phase: PomodoroPhase): string {
 
 export function cycleStepLabel(position: CyclePosition): string {
   const name = phaseName(position.phase);
-  return isWorkPhase(position.phase) ? `${workRound(position)}回目の${name}` : name;
+  const ordinal = workOrdinal(position);
+  return ordinal === null ? name : `${ordinal}回目の${name}`;
 }
 
 export function startToggleLabel(status: TimerStatus): string {
