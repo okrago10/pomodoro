@@ -19,6 +19,7 @@ export interface TimerRuntimeDeps {
   readonly visibility: Visibility;
 }
 
+/** メソッドは this に依存しないので、取り出してそのまま渡してよい。 */
 export interface TimerRuntime {
   /** 値が変わったときだけ別のオブジェクトになる。 */
   getSnapshot(): TimerSnapshot;
