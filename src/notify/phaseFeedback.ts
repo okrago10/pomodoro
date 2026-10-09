@@ -1,3 +1,5 @@
+import type { PomodoroPhase } from "../domain/cycle.ts";
+
 /**
  * フェーズ終了の知らせ方。呼び出し順序もこのインターフェースの一部で、
  * prepare を待ってから startKeepAlive、止めるときは stopKeepAlive を呼ぶ。
@@ -8,13 +10,13 @@ export interface PhaseFeedback {
   /** 画面が背面でも時間を数えられるように、無音に近い音を鳴らし続ける。 */
   startKeepAlive(): void;
   stopKeepAlive(): void;
-  /** タグは PomodoroPhase の _tag。 */
-  announce(endedTag: string, nextTag: string): void;
+  announce(ended: PomodoroPhase, next: PomodoroPhase): void;
 }
 
+/** 比べやすいように、記録は _tag で持つ。 */
 export interface RecordedAnnouncement {
-  readonly endedTag: string;
-  readonly nextTag: string;
+  readonly endedTag: PomodoroPhase["_tag"];
+  readonly nextTag: PomodoroPhase["_tag"];
 }
 
 export interface RecordingPhaseFeedback extends PhaseFeedback {
@@ -41,9 +43,9 @@ export function createRecordingPhaseFeedback(): RecordingPhaseFeedback {
     stopKeepAlive() {
       calls.push("stopKeepAlive");
     },
-    announce(endedTag, nextTag) {
+    announce(ended, next) {
       calls.push("announce");
-      announcements.push({ endedTag, nextTag });
+      announcements.push({ endedTag: ended._tag, nextTag: next._tag });
     },
   };
 }

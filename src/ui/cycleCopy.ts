@@ -1,6 +1,7 @@
-import type { CyclePosition, PomodoroPhase } from "../domain/cycle.ts";
+import { workOrdinal, type CyclePosition, type PomodoroPhase } from "../domain/cycle.ts";
 import type { TimerStatus } from "../timer/engine.ts";
 
+/** フェーズの呼び名はここだけに置く。画面も通知もこれを使う。 */
 export function phaseName(phase: PomodoroPhase): string {
   switch (phase._tag) {
     case "Work":
@@ -13,16 +14,9 @@ export function phaseName(phase: PomodoroPhase): string {
 }
 
 export function cycleStepLabel(position: CyclePosition): string {
-  switch (position.stepIndex) {
-    case 0:
-      return "1回目の作業";
-    case 1:
-      return "短い休憩";
-    case 2:
-      return "2回目の作業";
-    case 3:
-      return "長い休憩";
-  }
+  const name = phaseName(position.phase);
+  const ordinal = workOrdinal(position);
+  return ordinal === null ? name : `${ordinal}回目の${name}`;
 }
 
 export function startToggleLabel(status: TimerStatus): string {

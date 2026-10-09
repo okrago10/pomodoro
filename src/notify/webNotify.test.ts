@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { PomodoroPhase } from "../domain/cycle.ts";
 import { createWebPhaseFeedback } from "./webNotify.ts";
 
 interface NotificationPayload {
@@ -91,7 +92,7 @@ describe("createWebPhaseFeedback announce", () => {
     stubNotification("granted");
     const { vibrate } = stubNavigator();
 
-    createWebPhaseFeedback().announce("Work", "ShortBreak");
+    createWebPhaseFeedback().announce(PomodoroPhase.Work(), PomodoroPhase.ShortBreak());
 
     expect(vibrate).toHaveBeenCalledWith([80, 40, 80]);
   });
@@ -100,7 +101,9 @@ describe("createWebPhaseFeedback announce", () => {
     vi.stubGlobal("Notification", undefined);
     const { vibrate } = stubNavigator();
 
-    expect(() => createWebPhaseFeedback().announce("Work", "ShortBreak")).not.toThrow();
+    expect(() =>
+      createWebPhaseFeedback().announce(PomodoroPhase.Work(), PomodoroPhase.ShortBreak()),
+    ).not.toThrow();
     expect(vibrate).toHaveBeenCalledOnce();
   });
 
@@ -108,7 +111,7 @@ describe("createWebPhaseFeedback announce", () => {
     const { constructed } = stubNotification("default");
     stubNavigator();
 
-    createWebPhaseFeedback().announce("Work", "ShortBreak");
+    createWebPhaseFeedback().announce(PomodoroPhase.Work(), PomodoroPhase.ShortBreak());
 
     expect(constructed).toEqual([]);
   });
@@ -117,7 +120,7 @@ describe("createWebPhaseFeedback announce", () => {
     const { constructed } = stubNotification("denied");
     stubNavigator();
 
-    createWebPhaseFeedback().announce("Work", "ShortBreak");
+    createWebPhaseFeedback().announce(PomodoroPhase.Work(), PomodoroPhase.ShortBreak());
 
     expect(constructed).toEqual([]);
   });
@@ -127,7 +130,7 @@ describe("createWebPhaseFeedback announce", () => {
     const showNotification = vi.fn();
     stubNavigator(readyServiceWorker(showNotification));
 
-    createWebPhaseFeedback().announce("Work", "LongBreak");
+    createWebPhaseFeedback().announce(PomodoroPhase.Work(), PomodoroPhase.LongBreak());
     await vi.waitFor(() => expect(showNotification).toHaveBeenCalledOnce());
 
     expect(showNotification).toHaveBeenCalledWith(
@@ -143,7 +146,7 @@ describe("createWebPhaseFeedback announce", () => {
     });
     stubNavigator(readyServiceWorker(showNotification));
 
-    createWebPhaseFeedback().announce("ShortBreak", "Work");
+    createWebPhaseFeedback().announce(PomodoroPhase.ShortBreak(), PomodoroPhase.Work());
     await vi.waitFor(() => expect(constructed).toHaveLength(1));
 
     expect(constructed[0].title).toBe("短い休憩が終わりました");
@@ -154,7 +157,7 @@ describe("createWebPhaseFeedback announce", () => {
     const { constructed } = stubNotification("granted");
     stubNavigator();
 
-    createWebPhaseFeedback().announce("LongBreak", "Work");
+    createWebPhaseFeedback().announce(PomodoroPhase.LongBreak(), PomodoroPhase.Work());
 
     expect(constructed).toHaveLength(1);
     expect(constructed[0].title).toBe("長い休憩が終わりました");
@@ -165,7 +168,9 @@ describe("createWebPhaseFeedback announce", () => {
     stubNotification("granted", true);
     stubNavigator();
 
-    expect(() => createWebPhaseFeedback().announce("Work", "ShortBreak")).not.toThrow();
+    expect(() =>
+      createWebPhaseFeedback().announce(PomodoroPhase.Work(), PomodoroPhase.ShortBreak()),
+    ).not.toThrow();
   });
 
   it("points a tapped notification at the current path", () => {
@@ -173,7 +178,7 @@ describe("createWebPhaseFeedback announce", () => {
     const { constructed } = stubNotification("granted");
     stubNavigator();
 
-    createWebPhaseFeedback().announce("Work", "ShortBreak");
+    createWebPhaseFeedback().announce(PomodoroPhase.Work(), PomodoroPhase.ShortBreak());
 
     expect(constructed[0].payload.data).toEqual({ url: "/pomodoro/records" });
   });
@@ -183,7 +188,7 @@ describe("createWebPhaseFeedback announce", () => {
     const { constructed } = stubNotification("granted");
     stubNavigator();
 
-    createWebPhaseFeedback().announce("Work", "ShortBreak");
+    createWebPhaseFeedback().announce(PomodoroPhase.Work(), PomodoroPhase.ShortBreak());
 
     expect(constructed[0].payload.data).toEqual({ url: "/pomodoro/" });
   });
@@ -193,7 +198,7 @@ describe("createWebPhaseFeedback announce", () => {
     stubNotification("granted");
     stubNavigator();
 
-    createWebPhaseFeedback().announce("Work", "ShortBreak");
+    createWebPhaseFeedback().announce(PomodoroPhase.Work(), PomodoroPhase.ShortBreak());
 
     expect(oscillators).toHaveLength(1);
     expect(oscillators[0].frequency.value).toBe(880);
@@ -206,7 +211,9 @@ describe("createWebPhaseFeedback announce", () => {
     const { constructed } = stubNotification("granted");
     stubNavigator();
 
-    expect(() => createWebPhaseFeedback().announce("Work", "ShortBreak")).not.toThrow();
+    expect(() =>
+      createWebPhaseFeedback().announce(PomodoroPhase.Work(), PomodoroPhase.ShortBreak()),
+    ).not.toThrow();
     expect(constructed).toHaveLength(1);
   });
 });
