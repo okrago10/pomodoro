@@ -29,7 +29,7 @@ description: pomodoro（iPhone Safari 向け React/Vite の Web タイマー）�
 ## Drive
 
 ```bash
-node .claude/skills/verify-pomodoro/scripts/drive.mjs <timer|phase|reset|records|all>
+node .claude/skills/verify-pomodoro/scripts/drive.mjs <timer|visibility|phase|reset|records|all>
 ```
 
 - グローバルの `playwright`（`npm root -g`、このコンテナには導入済み。無ければ `npm i -g playwright`）と `/opt/pw-browsers` の Chromium を使う。`playwright install` はしない。

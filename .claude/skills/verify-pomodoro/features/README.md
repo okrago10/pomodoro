@@ -23,6 +23,7 @@ pomodoro のユーザー向け動作を確かめるための保守対象。操�
 ## 機能
 
 - [タイマー（開始・一時停止・再開）](./timer.md) — `drive.mjs timer`
+- [前面復帰の追いつき](./visibility.md) — `drive.mjs visibility`
 - [フェーズ遷移と作業時間の記録](./phase.md) — `drive.mjs phase`
 - [リセット](./reset.md) — `drive.mjs reset`
 - [記録画面](./records.md) — `drive.mjs records`

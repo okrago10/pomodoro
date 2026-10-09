@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 使い方: node .claude/skills/verify-pomodoro/scripts/drive.mjs <scenario>
-// scenario: timer | phase | reset | records | all
+// scenario: timer | visibility | phase | reset | records | all
 // launch.sh 済みのインスタンスを iPhone 相当の viewport で操作し、
 // .verify-artifacts/<scenario>-<時刻>/ に screenshot / aria / log.json を残す。
 import { execSync } from "node:child_process";
@@ -84,6 +84,21 @@ const scenarios = {
       await btn(page, "開始").click();
       await page.clock.runFor(2000);
       check("resumed", await remaining(page), "24:55");
+    });
+  },
+  async visibility() {
+    await withPage("visibility", async ({ page, shot }) => {
+      await btn(page, "開始").click();
+      await page.clock.runFor(1000);
+      check("running", await remaining(page), "24:59");
+      // 背面にいる間はタイマーが止まる想定。時刻だけ進め、タイマーは発火させない。
+      const now = await page.evaluate(() => Date.now());
+      await page.clock.setSystemTime(now + 10 * 60_000);
+      check("not caught up yet", await remaining(page), "24:59");
+      await shot("01-before-visible");
+      await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+      check("caught up on visible", await remaining(page), "14:59");
+      await shot("02-after-visible");
     });
   },
   async phase() {
