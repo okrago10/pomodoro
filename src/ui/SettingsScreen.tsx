@@ -26,7 +26,8 @@ export function SettingsScreen({
 }) {
   const note = settingsTimingNote(status, position);
   // React Aria は確定後も入力された数字の種類（全角など）のまま表示し直す。
-  // フォーカスが外れたら作り直し、半角の表示に戻す。
+  // 半角でない表示のままフォーカスが外れたら作り直し、半角に戻す。
+  // 半角なら作り直さない。アプリの切り替えでも blur が起き、戻ったときにフォーカスを失うため。
   const [blurCounts, setBlurCounts] = useState<Partial<Record<TimerSettingKey, number>>>({});
 
   return (
@@ -59,7 +60,13 @@ export function SettingsScreen({
               onChange={(value) => {
                 onChange({ [key]: value });
               }}
-              onBlur={() => {
+              onBlur={(event) => {
+                if (
+                  event.target instanceof HTMLInputElement &&
+                  /^[0-9]*$/.test(event.target.value)
+                ) {
+                  return;
+                }
                 setBlurCounts((counts) => ({ ...counts, [key]: (counts[key] ?? 0) + 1 }));
               }}
             >
