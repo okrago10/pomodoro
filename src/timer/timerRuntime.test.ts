@@ -295,6 +295,20 @@ describe("timer runtime と設定", () => {
     expect(runtime.getSnapshot().settings.workMinutes).toBe(50);
   });
 
+  it("別のタブが保存した設定を、自分の変更で上書きしない", () => {
+    const first = setup();
+    const second = setup({ settings: first.settings });
+
+    first.runtime.updateSettings({ workMinutes: 50 });
+    second.runtime.updateSettings({ shortBreakMinutes: 10 });
+
+    expect(first.settings.load()).toMatchObject({ workMinutes: 50, shortBreakMinutes: 10 });
+    expect(second.runtime.getSnapshot().settings).toMatchObject({
+      workMinutes: 50,
+      shortBreakMinutes: 10,
+    });
+  });
+
   it("残り時間が変わらない変更でも知らせ、何も変わらない変更では知らせない", async () => {
     const { runtime, changes } = setup();
     await runtime.start();

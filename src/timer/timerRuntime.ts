@@ -19,7 +19,7 @@ export interface TimerRuntimeDeps {
   readonly feedback: PhaseFeedback;
   readonly scheduler: Scheduler;
   readonly visibility: Visibility;
-  /** 作るときに 1 回読み、設定を変えるたびに書く。 */
+  /** 作るときと設定を変えるたびに読み、変えるたびに書く。 */
   readonly settings: TimerSettingsStore;
 }
 
@@ -190,7 +190,8 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
     },
 
     updateSettings(patch) {
-      const next = engine.updateSettings(patch);
+      // 別のタブが保存した値を先に取り込む。手元の古い値で上書きしない。
+      const next = engine.updateSettings({ ...deps.settings.load(), ...patch });
       deps.settings.save(next.settings);
       settle(next);
     },
