@@ -194,6 +194,7 @@ const scenarios = {
         await page.getByText(/^進行中の/).innerText(),
         "進行中の1回目の作業は今の長さのまま続きます。変更は次のフェーズから反映されます。",
       );
+      await setSetting(page, "作業（分）", "3");
       await setSetting(page, "短い休憩（分）", "2");
       await shot("04-settings-running");
       await btn(page, "戻る").click();
@@ -202,16 +203,18 @@ const scenarios = {
       check("next phase uses new length", await remaining(page), "01:59");
       check("in short break", await page.getByText("短い休憩").first().isVisible(), true);
       await shot("05-short-break-2min");
+      await page.clock.runFor(120_000);
+      check("next work uses new length", await remaining(page), "02:59");
 
       await btn(page, "リセット").click();
       check("reset dialog copy", await page.getByRole("alertdialog").innerText(), (text) =>
-        text.includes("1回目の作業（1分）に戻ります。"),
+        text.includes("1回目の作業（3分）に戻ります。"),
       );
       await btn(page, "リセットする").click();
-      check("after reset", await remaining(page), "01:00");
+      check("after reset", await remaining(page), "03:00");
 
       await page.reload();
-      check("kept after reload", await remaining(page), "01:00");
+      check("kept after reload", await remaining(page), "03:00");
       await shot("06-after-reload");
     });
   },
