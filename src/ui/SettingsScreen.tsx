@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Button, Label, NumberField, Surface, Typography } from "@heroui/react";
 import type { CyclePosition } from "../domain/cycle.ts";
 import {
   TIMER_SETTING_BOUNDS,
   TIMER_SETTING_KEYS,
+  type TimerSettingKey,
   type TimerSettings,
   type TimerSettingsPatch,
 } from "../domain/timerSettings.ts";
@@ -23,6 +25,9 @@ export function SettingsScreen({
   onBack: () => void;
 }) {
   const note = settingsTimingNote(status, position);
+  // React Aria は確定後も入力された数字の種類（全角など）のまま表示し直す。
+  // フォーカスが外れたら作り直し、半角の表示に戻す。
+  const [blurCounts, setBlurCounts] = useState<Partial<Record<TimerSettingKey, number>>>({});
 
   return (
     <Surface variant="secondary" className="flex min-h-dvh flex-col">
@@ -44,7 +49,7 @@ export function SettingsScreen({
         <div className="flex flex-col gap-5">
           {TIMER_SETTING_KEYS.map((key) => (
             <NumberField
-              key={key}
+              key={`${key}:${blurCounts[key] ?? 0}`}
               fullWidth
               variant="secondary"
               step={1}
@@ -53,6 +58,9 @@ export function SettingsScreen({
               value={settings[key]}
               onChange={(value) => {
                 onChange({ [key]: value });
+              }}
+              onBlur={() => {
+                setBlurCounts((counts) => ({ ...counts, [key]: (counts[key] ?? 0) + 1 }));
               }}
             >
               <Label>{SETTING_LABELS[key]}</Label>
