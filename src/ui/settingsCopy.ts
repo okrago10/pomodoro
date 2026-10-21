@@ -1,10 +1,4 @@
-import { Effect } from "effect";
-import {
-  initialCyclePosition,
-  nextPhase,
-  phaseDurationMinutes,
-  PomodoroPhase,
-} from "../domain/cycle.ts";
+import { cyclePhases, phaseDurationMinutes, PomodoroPhase } from "../domain/cycle.ts";
 import type { CyclePosition } from "../domain/cycle.ts";
 import type { TimerSettingKey, TimerSettings } from "../domain/timerSettings.ts";
 import type { TimerStatus } from "../timer/engine.ts";
@@ -20,16 +14,9 @@ export const SETTING_LABELS = {
   worksBeforeLongBreak: `${LONG_BREAK}までの${WORK}回数`,
 } satisfies Record<TimerSettingKey, string>;
 
-/** engine と同じ nextPhase でたどるので、実際に進む順とずれない。 */
 export function cyclePreview(settings: TimerSettings): string {
-  let position: CyclePosition = initialCyclePosition;
-  const steps = [position];
-  while (position.phase._tag !== "LongBreak") {
-    position = Effect.runSync(nextPhase(position, settings));
-    steps.push(position);
-  }
-  return steps
-    .map(({ phase }) => `${phaseName(phase)} ${phaseDurationMinutes(phase, settings)}分`)
+  return cyclePhases(settings)
+    .map((phase) => `${phaseName(phase)} ${phaseDurationMinutes(phase, settings)}分`)
     .join(" → ");
 }
 

@@ -20,12 +20,12 @@ import { createMemoryDailyWorkStore, type DailyWorkStore } from "./dailyWorkStor
  * 待機中は位置も残り時間も持たない。どちらも今の設定から導くので、
  * 待機中に設定を変えるとすぐ表示に出る。
  */
-type Run =
+type RunState =
   | { readonly status: "idle" }
   | { readonly status: "running"; readonly position: CyclePosition; readonly deadlineMs: number }
   | { readonly status: "paused"; readonly position: CyclePosition; readonly remainingMs: number };
 
-export type TimerStatus = Run["status"];
+export type TimerStatus = RunState["status"];
 
 export interface TimerSnapshot {
   readonly position: CyclePosition;
@@ -57,7 +57,7 @@ export function createTimerEngine(
   initialSettings: TimerSettings = DEFAULT_TIMER_SETTINGS,
 ) {
   let settings = initialSettings;
-  let run: Run = { status: "idle" };
+  let run: RunState = { status: "idle" };
   let todayWorkMs = storedTotal(store, calendar.dayKey(clock.now()));
   /** 経過をどこまで反映したか。動いている間だけ前に進む。 */
   let cursorMs = clock.now();

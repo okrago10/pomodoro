@@ -65,10 +65,21 @@ export const nextPhase = (
         };
       case "ShortBreak":
         return {
-          workNumber: Math.min(current.workNumber + 1, lastWork),
+          workNumber: current.workNumber + 1,
           phase: PomodoroPhase.Work(),
         };
       case "LongBreak":
         return initialCyclePosition;
     }
   });
+
+/** 1 回目の作業から長い休憩までのフェーズの並び。 */
+export function cyclePhases(settings: TimerSettings): PomodoroPhase[] {
+  let position = initialCyclePosition;
+  const phases = [position.phase];
+  while (position.phase._tag !== "LongBreak") {
+    position = Effect.runSync(nextPhase(position, settings));
+    phases.push(position.phase);
+  }
+  return phases;
+}
