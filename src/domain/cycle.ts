@@ -55,13 +55,15 @@ export const nextPhase = (
   settings: TimerSettings,
 ): Effect.Effect<CyclePosition> =>
   Effect.sync(() => {
-    const lastWork = settings.worksBeforeLongBreak;
+    const { worksBeforeLongBreak } = settings;
     switch (current.phase._tag) {
       case "Work":
         return {
           workNumber: current.workNumber,
           phase:
-            current.workNumber >= lastWork ? PomodoroPhase.LongBreak() : PomodoroPhase.ShortBreak(),
+            current.workNumber >= worksBeforeLongBreak
+              ? PomodoroPhase.LongBreak()
+              : PomodoroPhase.ShortBreak(),
         };
       case "ShortBreak":
         return {
