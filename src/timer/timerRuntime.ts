@@ -190,8 +190,8 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
     },
 
     updateSettings(patch) {
-      // 別のタブが保存した値を先に取り込む。手元の古い値で上書きしない。
-      const next = engine.updateSettings({ ...deps.settings.load(), ...patch });
+      // 別のタブが保存した値があれば先に取り込む。手元の古い値で上書きしない。
+      const next = engine.updateSettings({ ...deps.settings.load(current.settings), ...patch });
       deps.settings.save(next.settings);
       settle(next);
     },

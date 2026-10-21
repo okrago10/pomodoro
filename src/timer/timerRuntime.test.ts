@@ -6,7 +6,11 @@ import { createMemoryDailyWorkStore } from "./dailyWorkStore.ts";
 import type { TimerSnapshot } from "./engine.ts";
 import { createManualScheduler, type ManualScheduler } from "./scheduler.ts";
 import { createTimerRuntime } from "./timerRuntime.ts";
-import { createMemoryTimerSettingsStore, type TimerSettingsStore } from "./timerSettingsStore.ts";
+import {
+  createLocalStorageTimerSettingsStore,
+  createMemoryTimerSettingsStore,
+  type TimerSettingsStore,
+} from "./timerSettingsStore.ts";
 import { createManualVisibility } from "./visibility.ts";
 
 const MINUTE_MS = 60_000;
@@ -293,6 +297,25 @@ describe("timer runtime と設定", () => {
 
     expect(runtime.getSnapshot().remainingMs).toBe(50 * MINUTE_MS);
     expect(runtime.getSnapshot().settings.workMinutes).toBe(50);
+  });
+
+  it("保存に失敗する環境でも、続けて変えた設定が前の変更を戻さない", () => {
+    const { runtime } = setup({
+      settings: createLocalStorageTimerSettingsStore({
+        getItem: () => null,
+        setItem() {
+          throw new Error("quota exceeded");
+        },
+      }),
+    });
+
+    runtime.updateSettings({ workMinutes: 50 });
+    runtime.updateSettings({ shortBreakMinutes: 10 });
+
+    expect(runtime.getSnapshot().settings).toMatchObject({
+      workMinutes: 50,
+      shortBreakMinutes: 10,
+    });
   });
 
   it("別のタブが保存した設定を、自分の変更で上書きしない", () => {

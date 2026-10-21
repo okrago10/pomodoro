@@ -84,4 +84,36 @@ describe("localStorage timer settings store", () => {
       store.save(parseTimerSettings({ workMinutes: 50 }));
     }).not.toThrow();
   });
+
+  it("自分が読み書きしたあと保存先が変わっていなければ、渡した値を返す", () => {
+    const storage = new MemoryStorage();
+    const store = createLocalStorageTimerSettingsStore(storage);
+    const current = parseTimerSettings({ workMinutes: 50 });
+    store.save(parseTimerSettings({ workMinutes: 40 }));
+
+    expect(store.load(current)).toBe(current);
+  });
+
+  it("別のストアが書いた値は、渡した値に重ねて返す", () => {
+    const storage = new MemoryStorage();
+    const mine = createLocalStorageTimerSettingsStore(storage);
+    mine.save(DEFAULT_TIMER_SETTINGS);
+
+    createLocalStorageTimerSettingsStore(storage).save(parseTimerSettings({ workMinutes: 50 }));
+
+    expect(mine.load(DEFAULT_TIMER_SETTINGS).workMinutes).toBe(50);
+  });
+
+  it("書き込みに失敗したあとも、古い保存内容で渡した値を上書きしない", () => {
+    const storage = new MemoryStorage();
+    const store = createLocalStorageTimerSettingsStore(storage);
+    store.save(DEFAULT_TIMER_SETTINGS);
+    storage.setItem = () => {
+      throw new Error("quota exceeded");
+    };
+    const current = parseTimerSettings({ workMinutes: 50 });
+    store.save(current);
+
+    expect(store.load(current)).toBe(current);
+  });
 });
