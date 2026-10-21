@@ -1,11 +1,11 @@
 ---
 name: verify-pomodoro
-description: pomodoro（iPhone Safari 向け React/Vite の Web タイマー）を実ブラウザ（Playwright + Chromium、iPhone 相当 viewport）で起動・操作し、タイマー・フェーズ遷移・リセット・記録画面の動作をスクショと ARIA スナップショットで証明する。UI や timer/domain を変えたあと、単体テストでなく実アプリで動作確認したいときに使う。
+description: pomodoro（iPhone Safari 向け React/Vite の Web タイマー）を実ブラウザ（Playwright + Chromium、iPhone 相当 viewport）で起動・操作し、タイマー・フェーズ遷移・リセット・記録画面・設定画面の動作をスクショと ARIA スナップショットで証明する。UI や timer/domain を変えたあと、単体テストでなく実アプリで動作確認したいときに使う。
 ---
 
 # verify-pomodoro
 
-対象は Web UI のみ（サーバなし、状態はブラウザの localStorage `pomodoro:daily-work-ms`）。ヘルパーはすべてリポジトリルートから実行する。
+対象は Web UI のみ（サーバなし、状態はブラウザの localStorage `pomodoro:daily-work-ms` と `pomodoro:timer-settings`）。ヘルパーはすべてリポジトリルートから実行する。
 
 ## Launch
 
@@ -29,13 +29,13 @@ description: pomodoro（iPhone Safari 向け React/Vite の Web タイマー）�
 ## Drive
 
 ```bash
-node .claude/skills/verify-pomodoro/scripts/drive.mjs <timer|visibility|phase|reset|records|all>
+node .claude/skills/verify-pomodoro/scripts/drive.mjs <timer|visibility|phase|reset|records|settings|all>
 ```
 
 - グローバルの `playwright`（`npm root -g`、このコンテナには導入済み。無ければ `npm i -g playwright`）と `/opt/pw-browsers` の Chromium を使う。`playwright install` はしない。
 - viewport 393x852・isMobile・ja-JP・Asia/Tokyo・通知許可済み。
 - 時間は `page.clock`（2026-09-26 10:01 JST で停止）で進める。`runFor(ms)` した分だけ進むので、25 分を実時間で待たない。アプリのコードやテスト専用口は使わない。
-- ハンドル: ボタンは accessible name（`開始` / `一時停止` / `リセット` / `キャンセル` / `リセットする` / `記録` / `戻る`）、残り時間は `p[aria-live=polite]`、記録のバーは `今日 25分` のような aria-label と `aria-pressed`。
+- ハンドル: ボタンは accessible name（`開始` / `一時停止` / `リセット` / `キャンセル` / `リセットする` / `記録` / `設定` / `戻る`）、残り時間は `p[aria-live=polite]`、記録のバーは `今日 25分` のような aria-label と `aria-pressed`、設定の入力は `作業（分）` のような名前の textbox。
 - 各チェックは `PASS/FAIL` を出し、1 つでも FAIL なら exit 1。
 - 新しい確認を足すときは `drive.mjs` の `scenarios` に追加し、`features/` の該当ファイルも更新する。
 

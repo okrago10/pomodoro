@@ -27,3 +27,4 @@ pomodoro のユーザー向け動作を確かめるための保守対象。操�
 - [フェーズ遷移と作業時間の記録](./phase.md) — `drive.mjs phase`
 - [リセット](./reset.md) — `drive.mjs reset`
 - [記録画面](./records.md) — `drive.mjs records`
+- [設定](./settings.md) — `drive.mjs settings`
