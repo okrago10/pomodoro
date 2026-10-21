@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { utcCalendar } from "./calendar.ts";
 import { FakeClock } from "./clock.ts";
 import { createMemoryDailyWorkStore, type DailyWorkStore } from "./dailyWorkStore.ts";
-import { createTimerEngine, phaseDurationMs } from "./engine.ts";
+import { phaseDurationMs } from "../domain/cycle.ts";
+import { DEFAULT_TIMER_SETTINGS } from "../domain/timerSettings.ts";
+import { createTimerEngine } from "./engine.ts";
 
 const SECOND = 1_000;
 const MINUTE = 60_000;
@@ -92,7 +94,7 @@ describe("timer engine", () => {
 
     const snap = engine.reset();
     expect(snap.status).toBe("idle");
-    expect(snap.position.stepIndex).toBe(0);
+    expect(snap.position.workNumber).toBe(1);
     expect(snap.position.phase._tag).toBe("Work");
     expect(snap.remainingMs).toBe(25 * MINUTE);
 
@@ -123,7 +125,7 @@ describe("timer engine", () => {
     const snap = engine.tick();
     expect(snap.position.phase._tag).toBe("ShortBreak");
     expect(snap.remainingMs).toBe(5 * MINUTE - 90 * SECOND);
-    expect(phaseDurationMs(snap.position)).toBe(5 * MINUTE);
+    expect(phaseDurationMs(snap.position.phase, DEFAULT_TIMER_SETTINGS)).toBe(5 * MINUTE);
   });
 
   it("reports each skipped phase when the clock jumps past more than one", () => {
@@ -196,7 +198,7 @@ describe("timer engine", () => {
 
     const snap = engine.reset();
     expect(snap.status).toBe("idle");
-    expect(snap.position.stepIndex).toBe(0);
+    expect(snap.position.workNumber).toBe(1);
     expect(snap.todayWorkMs).toBe(50 * MINUTE);
     expect(engine.takeTransitions()).toEqual([]);
   });

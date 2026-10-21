@@ -1,8 +1,5 @@
 import { Data, Effect } from "effect";
-
-const WORK_MINUTES = 25;
-const SHORT_BREAK_MINUTES = 5;
-const LONG_BREAK_MINUTES = 15;
+import type { TimerSettings } from "./timerSettings.ts";
 
 export type PomodoroPhase = Data.TaggedEnum<{
   Work: {};
@@ -12,34 +9,33 @@ export type PomodoroPhase = Data.TaggedEnum<{
 
 export const PomodoroPhase = Data.taggedEnum<PomodoroPhase>();
 
-export type CycleStepIndex = 0 | 1 | 2 | 3;
-
+/**
+ * workNumber は 1 始まり。作業中はその作業が何回目か、休憩中は直前の作業の回数。
+ * フェーズは設定から導かずに持つので、設定を変えても進行中のフェーズの種類は変わらない。
+ */
 export interface CyclePosition {
-  readonly stepIndex: CycleStepIndex;
+  readonly workNumber: number;
   readonly phase: PomodoroPhase;
 }
 
-const CYCLE: readonly [PomodoroPhase, PomodoroPhase, PomodoroPhase, PomodoroPhase] = [
-  PomodoroPhase.Work(),
-  PomodoroPhase.ShortBreak(),
-  PomodoroPhase.Work(),
-  PomodoroPhase.LongBreak(),
-];
-
 export const initialCyclePosition: CyclePosition = {
-  stepIndex: 0,
-  phase: CYCLE[0],
+  workNumber: 1,
+  phase: PomodoroPhase.Work(),
 };
 
-export function phaseDurationMinutes(phase: PomodoroPhase): 25 | 5 | 15 {
+export function phaseDurationMinutes(phase: PomodoroPhase, settings: TimerSettings): number {
   switch (phase._tag) {
     case "Work":
-      return WORK_MINUTES;
+      return settings.workMinutes;
     case "ShortBreak":
-      return SHORT_BREAK_MINUTES;
+      return settings.shortBreakMinutes;
     case "LongBreak":
-      return LONG_BREAK_MINUTES;
+      return settings.longBreakMinutes;
   }
+}
+
+export function phaseDurationMs(phase: PomodoroPhase, settings: TimerSettings): number {
+  return phaseDurationMinutes(phase, settings) * 60_000;
 }
 
 export function isWorkPhase(phase: PomodoroPhase): boolean {
@@ -50,16 +46,29 @@ export function isBreakPhase(phase: PomodoroPhase): boolean {
   return phase._tag !== "Work";
 }
 
-/** その作業がサイクルの中で何回目か（1 始まり）。CYCLE の並びから数える。休憩では null。 */
-export function workOrdinal(position: CyclePosition): number | null {
-  if (!isWorkPhase(position.phase)) {
-    return null;
-  }
-  return CYCLE.slice(0, position.stepIndex + 1).filter(isWorkPhase).length;
-}
-
-export const nextPhase = (current: CyclePosition): Effect.Effect<CyclePosition> =>
+/**
+ * 遷移のたびに、その時点の設定で次を決める。途中で長い休憩までの回数を減らしても、
+ * 作業のあとは長い休憩へ進み、短い休憩のあとの作業は設定の回数を超えない。
+ */
+export const nextPhase = (
+  current: CyclePosition,
+  settings: TimerSettings,
+): Effect.Effect<CyclePosition> =>
   Effect.sync(() => {
-    const stepIndex = ((current.stepIndex + 1) % CYCLE.length) as CycleStepIndex;
-    return { stepIndex, phase: CYCLE[stepIndex] };
+    const lastWork = settings.worksBeforeLongBreak;
+    switch (current.phase._tag) {
+      case "Work":
+        return {
+          workNumber: current.workNumber,
+          phase:
+            current.workNumber >= lastWork ? PomodoroPhase.LongBreak() : PomodoroPhase.ShortBreak(),
+        };
+      case "ShortBreak":
+        return {
+          workNumber: Math.min(current.workNumber + 1, lastWork),
+          phase: PomodoroPhase.Work(),
+        };
+      case "LongBreak":
+        return initialCyclePosition;
+    }
   });

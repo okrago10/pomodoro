@@ -3,9 +3,10 @@ import {
   initialCyclePosition,
   isWorkPhase,
   nextPhase,
-  phaseDurationMinutes,
+  phaseDurationMs,
   type CyclePosition,
 } from "../domain/cycle.ts";
+import { DEFAULT_TIMER_SETTINGS } from "../domain/timerSettings.ts";
 import { localCalendar, type Calendar } from "./calendar.ts";
 import type { Clock } from "./clock.ts";
 import { createMemoryDailyWorkStore, type DailyWorkStore } from "./dailyWorkStore.ts";
@@ -22,10 +23,6 @@ export interface TimerSnapshot {
 interface PhaseTransition {
   readonly from: CyclePosition;
   readonly to: CyclePosition;
-}
-
-export function phaseDurationMs(position: CyclePosition): number {
-  return phaseDurationMinutes(position.phase) * 60_000;
 }
 
 function storedTotal(store: DailyWorkStore, dayKey: string): number {
@@ -45,7 +42,7 @@ export function createTimerEngine(
   let position: CyclePosition = initialCyclePosition;
   let status: TimerStatus = "idle";
   let deadlineMs: number | null = null;
-  let remainingMs = phaseDurationMs(position);
+  let remainingMs = phaseDurationMs(position.phase, DEFAULT_TIMER_SETTINGS);
   let todayWorkMs = storedTotal(store, calendar.dayKey(clock.now()));
   /** 経過をどこまで反映したか。動いている間だけ前に進む。 */
   let cursorMs = clock.now();
@@ -75,9 +72,9 @@ export function createTimerEngine(
       while (now >= deadlineMs) {
         const from = position;
         accrue(deadlineMs, isWorkPhase(from.phase));
-        position = Effect.runSync(nextPhase(position));
+        position = Effect.runSync(nextPhase(position, DEFAULT_TIMER_SETTINGS));
         pendingTransitions.push({ from, to: position });
-        deadlineMs += phaseDurationMs(position);
+        deadlineMs += phaseDurationMs(position.phase, DEFAULT_TIMER_SETTINGS);
       }
       accrue(now, isWorkPhase(position.phase));
       remainingMs = deadlineMs - now;
@@ -102,7 +99,7 @@ export function createTimerEngine(
       return toSnapshot();
     }
     if (status === "idle") {
-      remainingMs = phaseDurationMs(position);
+      remainingMs = phaseDurationMs(position.phase, DEFAULT_TIMER_SETTINGS);
     }
     deadlineMs = now + remainingMs;
     status = "running";
@@ -125,7 +122,7 @@ export function createTimerEngine(
     position = initialCyclePosition;
     status = "idle";
     deadlineMs = null;
-    remainingMs = phaseDurationMs(position);
+    remainingMs = phaseDurationMs(position.phase, DEFAULT_TIMER_SETTINGS);
     pendingTransitions = [];
     return toSnapshot();
   }

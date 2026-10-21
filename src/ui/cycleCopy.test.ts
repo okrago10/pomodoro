@@ -10,10 +10,10 @@ describe("cycle copy", () => {
   });
 
   it("describes where the cycle is", () => {
-    expect(cycleStepLabel({ stepIndex: 0, phase: PomodoroPhase.Work() })).toBe("1回目の作業");
-    expect(cycleStepLabel({ stepIndex: 1, phase: PomodoroPhase.ShortBreak() })).toBe("短い休憩");
-    expect(cycleStepLabel({ stepIndex: 2, phase: PomodoroPhase.Work() })).toBe("2回目の作業");
-    expect(cycleStepLabel({ stepIndex: 3, phase: PomodoroPhase.LongBreak() })).toBe("長い休憩");
+    expect(cycleStepLabel({ workNumber: 1, phase: PomodoroPhase.Work() })).toBe("1回目の作業");
+    expect(cycleStepLabel({ workNumber: 1, phase: PomodoroPhase.ShortBreak() })).toBe("短い休憩");
+    expect(cycleStepLabel({ workNumber: 2, phase: PomodoroPhase.Work() })).toBe("2回目の作業");
+    expect(cycleStepLabel({ workNumber: 2, phase: PomodoroPhase.LongBreak() })).toBe("長い休憩");
   });
 
   it("toggles start and pause on the same control", () => {

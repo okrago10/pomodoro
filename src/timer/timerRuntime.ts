@@ -34,7 +34,7 @@ function sameSnapshot(a: TimerSnapshot, b: TimerSnapshot): boolean {
     a.status === b.status &&
     a.remainingMs === b.remainingMs &&
     a.todayWorkMs === b.todayWorkMs &&
-    a.position.stepIndex === b.position.stepIndex &&
+    a.position.workNumber === b.position.workNumber &&
     a.position.phase._tag === b.position.phase._tag
   );
 }
