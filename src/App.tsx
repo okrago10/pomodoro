@@ -4,14 +4,23 @@ import type { AppDeps } from "./appDeps.ts";
 import { isWorkPhase } from "./domain/cycle.ts";
 import { formatRemaining, formatTodayWork } from "./timer/format.ts";
 import { usePomodoroTimer } from "./timer/usePomodoroTimer.ts";
-import { cycleStepLabel, phaseName, startToggleLabel } from "./ui/cycleCopy.ts";
+import { cycleStepLabel, phaseName, resetConfirmBody, startToggleLabel } from "./ui/cycleCopy.ts";
 import { RecordsScreen } from "./ui/RecordsScreen.tsx";
+import { SettingsScreen } from "./ui/SettingsScreen.tsx";
 
 export function App({ deps }: { deps: AppDeps }) {
-  const { position, remainingMs, status, todayWorkMs, start, pause, reset } = usePomodoroTimer(
-    deps.timer,
-  );
-  const [screen, setScreen] = useState<"timer" | "records">("timer");
+  const {
+    position,
+    remainingMs,
+    status,
+    todayWorkMs,
+    settings,
+    start,
+    pause,
+    reset,
+    updateSettings,
+  } = usePomodoroTimer(deps.timer);
+  const [screen, setScreen] = useState<"timer" | "records" | "settings">("timer");
   // 記録は今日の合計が動いたときだけ読み直す。描画のたびに localStorage を読まない。
   const records = useMemo(
     () => (screen === "records" ? deps.records.recentWork() : null),
@@ -32,6 +41,20 @@ export function App({ deps }: { deps: AppDeps }) {
     );
   }
 
+  if (screen === "settings") {
+    return (
+      <SettingsScreen
+        settings={settings}
+        status={status}
+        position={position}
+        onChange={updateSettings}
+        onBack={() => {
+          setScreen("timer");
+        }}
+      />
+    );
+  }
+
   return (
     <Surface
       variant={focusing ? "secondary" : "tertiary"}
@@ -40,9 +63,14 @@ export function App({ deps }: { deps: AppDeps }) {
       <main className="mx-auto flex min-h-dvh w-full max-w-[390px] flex-1 flex-col items-center justify-between gap-8 px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))]">
         <div className="flex w-full flex-col items-center gap-3 pt-8">
           <div className="flex w-full items-center justify-between">
-            <Button size="sm" variant="tertiary" onPress={() => setScreen("records")}>
-              記録
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="tertiary" onPress={() => setScreen("records")}>
+                記録
+              </Button>
+              <Button size="sm" variant="tertiary" onPress={() => setScreen("settings")}>
+                設定
+              </Button>
+            </div>
             <Typography color="muted" type="body-sm">
               今日 {formatTodayWork(todayWorkMs)}
             </Typography>
@@ -96,7 +124,7 @@ export function App({ deps }: { deps: AppDeps }) {
                     <AlertDialog.Heading>最初からやり直しますか？</AlertDialog.Heading>
                   </AlertDialog.Header>
                   <AlertDialog.Body>
-                    <p>進行中のサイクルは破棄され、1回目の作業（25分）に戻ります。</p>
+                    <p>{resetConfirmBody(settings)}</p>
                   </AlertDialog.Body>
                   <AlertDialog.Footer>
                     <Button slot="close" variant="tertiary">

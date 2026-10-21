@@ -1,9 +1,11 @@
+import type { TimerSettingsPatch } from "../domain/timerSettings.ts";
 import type { PhaseFeedback } from "../notify/phaseFeedback.ts";
 import type { Calendar } from "./calendar.ts";
 import type { Clock } from "./clock.ts";
 import type { DailyWorkStore } from "./dailyWorkStore.ts";
 import { createTimerEngine, type TimerSnapshot } from "./engine.ts";
 import type { Scheduler } from "./scheduler.ts";
+import type { TimerSettingsStore } from "./timerSettingsStore.ts";
 import type { Visibility } from "./visibility.ts";
 
 const TICK_MS = 250;
@@ -17,6 +19,8 @@ export interface TimerRuntimeDeps {
   readonly feedback: PhaseFeedback;
   readonly scheduler: Scheduler;
   readonly visibility: Visibility;
+  /** 作るときと設定を変えるたびに読み、変えるたびに書く。 */
+  readonly settings: TimerSettingsStore;
 }
 
 /** メソッドは this に依存しないので、取り出してそのまま渡してよい。 */
@@ -27,6 +31,8 @@ export interface TimerRuntime {
   start(): Promise<void>;
   pause(): void;
   reset(): void;
+  /** 範囲外の値は無視する。進行中のフェーズの長さは変えず、次のフェーズから効く。 */
+  updateSettings(patch: TimerSettingsPatch): void;
 }
 
 function sameSnapshot(a: TimerSnapshot, b: TimerSnapshot): boolean {
@@ -34,8 +40,9 @@ function sameSnapshot(a: TimerSnapshot, b: TimerSnapshot): boolean {
     a.status === b.status &&
     a.remainingMs === b.remainingMs &&
     a.todayWorkMs === b.todayWorkMs &&
-    a.position.stepIndex === b.position.stepIndex &&
-    a.position.phase._tag === b.position.phase._tag
+    a.position.workNumber === b.position.workNumber &&
+    a.position.phase._tag === b.position.phase._tag &&
+    a.settings === b.settings
   );
 }
 
@@ -49,7 +56,7 @@ function sameSnapshot(a: TimerSnapshot, b: TimerSnapshot): boolean {
  */
 export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
   const { clock, calendar, store, feedback, scheduler, visibility } = deps;
-  const engine = createTimerEngine(clock, calendar, store);
+  const engine = createTimerEngine(clock, calendar, store, deps.settings.load());
   const listeners = new Set<() => void>();
 
   let current = engine.tick();
@@ -109,14 +116,15 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
 
   /**
    * engine の操作のあとは必ずここを通す。どの操作の途中で締切を越えても、
-   * たまった遷移をその場で知らせ、次の締切を張り直す。
+   * 最後の遷移だけをその場で知らせ、次の締切を張り直す。背面から戻ったときに
+   * 越えた締切の数だけ音や振動を重ねない。
    */
   function settle(next: TimerSnapshot): void {
-    const transitions = engine.takeTransitions();
+    const latest = engine.takeTransitions().at(-1);
     publish(next);
-    for (const transition of transitions) {
+    if (latest !== undefined) {
       tryFeedback(() => {
-        feedback.announce(transition.from.phase, transition.to.phase);
+        feedback.announce(latest.from.phase, latest.to.phase);
       });
     }
     scheduleDeadline();
@@ -179,6 +187,13 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
         feedback.stopKeepAlive();
       });
       settle(engine.reset());
+    },
+
+    updateSettings(patch) {
+      // 別のタブが保存した値があれば先に取り込む。手元の古い値で上書きしない。
+      const next = engine.updateSettings({ ...deps.settings.load(current.settings), ...patch });
+      deps.settings.save(next.settings);
+      settle(next);
     },
   };
 }

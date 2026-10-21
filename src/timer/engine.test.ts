@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { utcCalendar } from "./calendar.ts";
 import { FakeClock } from "./clock.ts";
 import { createMemoryDailyWorkStore, type DailyWorkStore } from "./dailyWorkStore.ts";
-import { createTimerEngine, phaseDurationMs } from "./engine.ts";
+import { phaseDurationMs } from "../domain/cycle.ts";
+import { DEFAULT_TIMER_SETTINGS, parseTimerSettings } from "../domain/timerSettings.ts";
+import { createTimerEngine } from "./engine.ts";
 
 const SECOND = 1_000;
 const MINUTE = 60_000;
@@ -92,7 +94,7 @@ describe("timer engine", () => {
 
     const snap = engine.reset();
     expect(snap.status).toBe("idle");
-    expect(snap.position.stepIndex).toBe(0);
+    expect(snap.position.workNumber).toBe(1);
     expect(snap.position.phase._tag).toBe("Work");
     expect(snap.remainingMs).toBe(25 * MINUTE);
 
@@ -123,7 +125,7 @@ describe("timer engine", () => {
     const snap = engine.tick();
     expect(snap.position.phase._tag).toBe("ShortBreak");
     expect(snap.remainingMs).toBe(5 * MINUTE - 90 * SECOND);
-    expect(phaseDurationMs(snap.position)).toBe(5 * MINUTE);
+    expect(phaseDurationMs(snap.position.phase, DEFAULT_TIMER_SETTINGS)).toBe(5 * MINUTE);
   });
 
   it("reports each skipped phase when the clock jumps past more than one", () => {
@@ -196,7 +198,7 @@ describe("timer engine", () => {
 
     const snap = engine.reset();
     expect(snap.status).toBe("idle");
-    expect(snap.position.stepIndex).toBe(0);
+    expect(snap.position.workNumber).toBe(1);
     expect(snap.todayWorkMs).toBe(50 * MINUTE);
     expect(engine.takeTransitions()).toEqual([]);
   });
@@ -256,5 +258,128 @@ describe("timer engine", () => {
     expect(snap.status).toBe("running");
     expect(snap.remainingMs).toBe(25 * MINUTE - 3 * SECOND);
     expect(snap.todayWorkMs).toBe(0);
+  });
+});
+
+describe("timer engine settings", () => {
+  it("runs the cycle with the settings it was created with", () => {
+    const clock = new FakeClock();
+    const settings = parseTimerSettings({ workMinutes: 50, worksBeforeLongBreak: 3 });
+    const engine = createTimerEngine(clock, utcCalendar, createMemoryDailyWorkStore(), settings);
+    expect(engine.tick().remainingMs).toBe(50 * MINUTE);
+    expect(engine.tick().settings).toBe(settings);
+
+    engine.start();
+    clock.advance(50 * MINUTE + 5 * MINUTE + 50 * MINUTE + 5 * MINUTE + 50 * MINUTE);
+    const snap = engine.tick();
+
+    expect(engine.takeTransitions().map((item) => item.to.phase._tag)).toEqual([
+      "ShortBreak",
+      "Work",
+      "ShortBreak",
+      "Work",
+      "LongBreak",
+    ]);
+    expect(snap.remainingMs).toBe(15 * MINUTE);
+  });
+
+  it("shows a new work length at once while idle", () => {
+    const engine = createTimerEngine(new FakeClock());
+
+    const snap = engine.updateSettings({ workMinutes: 50 });
+
+    expect(snap.status).toBe("idle");
+    expect(snap.remainingMs).toBe(50 * MINUTE);
+    expect(snap.settings.workMinutes).toBe(50);
+    expect(engine.tick().remainingMs).toBe(50 * MINUTE);
+  });
+
+  it("keeps the running phase's deadline and uses the new lengths from the next phase", () => {
+    const clock = new FakeClock();
+    const engine = createTimerEngine(clock);
+    engine.start();
+    clock.advance(10 * MINUTE);
+
+    expect(engine.updateSettings({ workMinutes: 50, shortBreakMinutes: 10 }).remainingMs).toBe(
+      15 * MINUTE,
+    );
+
+    clock.advance(15 * MINUTE);
+    const shortBreak = engine.tick();
+    expect(shortBreak.position.phase._tag).toBe("ShortBreak");
+    expect(shortBreak.remainingMs).toBe(10 * MINUTE);
+
+    clock.advance(10 * MINUTE);
+    const secondWork = engine.tick();
+    expect(secondWork.position.phase._tag).toBe("Work");
+    expect(secondWork.remainingMs).toBe(50 * MINUTE);
+  });
+
+  it("keeps a paused phase's remaining time", () => {
+    const clock = new FakeClock();
+    const engine = createTimerEngine(clock);
+    engine.start();
+    clock.advance(10 * MINUTE);
+    engine.pause();
+
+    const snap = engine.updateSettings({ workMinutes: 50 });
+    expect(snap.status).toBe("paused");
+    expect(snap.remainingMs).toBe(15 * MINUTE);
+
+    engine.start();
+    clock.advance(15 * MINUTE + 5 * MINUTE);
+    expect(engine.tick().remainingMs).toBe(50 * MINUTE);
+  });
+
+  it("takes the long break after the current work when the cycle shrinks below it", () => {
+    const clock = new FakeClock();
+    const settings = parseTimerSettings({ worksBeforeLongBreak: 4 });
+    const engine = createTimerEngine(clock, utcCalendar, createMemoryDailyWorkStore(), settings);
+    engine.start();
+    clock.advance(25 * MINUTE + 5 * MINUTE + 25 * MINUTE + 5 * MINUTE);
+    expect(engine.tick().position.workNumber).toBe(3);
+
+    engine.updateSettings({ worksBeforeLongBreak: 2 });
+    clock.advance(25 * MINUTE);
+
+    expect(engine.tick().position.phase._tag).toBe("LongBreak");
+  });
+
+  it("replays time that passed before a change with the old lengths", () => {
+    const clock = new FakeClock();
+    const engine = createTimerEngine(clock);
+    engine.start();
+    clock.advance(25 * MINUTE + 90 * SECOND);
+
+    const snap = engine.updateSettings({ shortBreakMinutes: 10 });
+
+    expect(snap.position.phase._tag).toBe("ShortBreak");
+    expect(snap.remainingMs).toBe(5 * MINUTE - 90 * SECOND);
+    expect(engine.takeTransitions().map((item) => item.to.phase._tag)).toEqual(["ShortBreak"]);
+  });
+
+  it("ignores out-of-range values and keeps the same settings when nothing changes", () => {
+    const engine = createTimerEngine(new FakeClock());
+    const before = engine.tick().settings;
+
+    const ignored = engine.updateSettings({ workMinutes: 0, shortBreakMinutes: Number.NaN });
+    expect(ignored.settings).toBe(before);
+    expect(ignored.remainingMs).toBe(25 * MINUTE);
+    expect(engine.updateSettings({ workMinutes: 25 }).settings).toBe(before);
+    expect(engine.updateSettings({ workMinutes: 26 }).settings).not.toBe(before);
+  });
+
+  it("resets to the first work with its new length", () => {
+    const clock = new FakeClock();
+    const engine = createTimerEngine(clock);
+    engine.start();
+    clock.advance(30 * MINUTE);
+    engine.updateSettings({ workMinutes: 50 });
+
+    const snap = engine.reset();
+
+    expect(snap.position.workNumber).toBe(1);
+    expect(snap.position.phase._tag).toBe("Work");
+    expect(snap.remainingMs).toBe(50 * MINUTE);
   });
 });

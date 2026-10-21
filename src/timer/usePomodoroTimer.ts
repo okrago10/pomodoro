@@ -12,5 +12,11 @@ export function usePomodoroTimer(runtime: TimerRuntime) {
     void runtime.start();
   }, [runtime]);
 
-  return { ...snapshot, start, pause: runtime.pause, reset: runtime.reset };
+  return {
+    ...snapshot,
+    start,
+    pause: runtime.pause,
+    reset: runtime.reset,
+    updateSettings: runtime.updateSettings,
+  };
 }
