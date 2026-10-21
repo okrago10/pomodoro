@@ -47,8 +47,8 @@ export function isBreakPhase(phase: PomodoroPhase): boolean {
 }
 
 /**
- * 遷移のたびに、その時点の設定で次を決める。途中で長い休憩までの回数を減らしても、
- * 作業のあとは長い休憩へ進み、短い休憩のあとの作業は設定の回数を超えない。
+ * 遷移のたびに、その時点の設定で次を決める。途中で長い休憩までの回数を減らしたら、
+ * その回数に達している作業のあとは長い休憩へ進む。作業の回数は実際に数えたとおりで、戻さない。
  */
 export const nextPhase = (
   current: CyclePosition,

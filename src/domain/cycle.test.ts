@@ -93,11 +93,11 @@ describe("pomodoro cycle", () => {
     ]);
   });
 
-  it("does not count past the new length after a short break when the cycle shrinks", () => {
+  it("keeps counting works and goes to the long break next when the cycle shrinks during a short break", () => {
     const thirdShortBreak = { workNumber: 3, phase: PomodoroPhase.ShortBreak() };
     expect(walk(thirdShortBreak, parseTimerSettings({ worksBeforeLongBreak: 2 }), 2)).toEqual([
-      ["Work", 2],
-      ["LongBreak", 2],
+      ["Work", 4],
+      ["LongBreak", 4],
     ]);
   });
 
