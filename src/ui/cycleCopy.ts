@@ -1,4 +1,5 @@
 import { isWorkPhase, type CyclePosition, type PomodoroPhase } from "../domain/cycle.ts";
+import type { TimerSettings } from "../domain/timerSettings.ts";
 import type { TimerStatus } from "../timer/engine.ts";
 
 /** フェーズの呼び名はここだけに置く。画面も通知もこれを使う。 */
@@ -20,4 +21,8 @@ export function cycleStepLabel(position: CyclePosition): string {
 
 export function startToggleLabel(status: TimerStatus): string {
   return status === "running" ? "一時停止" : "開始";
+}
+
+export function resetConfirmBody(settings: TimerSettings): string {
+  return `進行中のサイクルは破棄され、1回目の作業（${settings.workMinutes}分）に戻ります。`;
 }
