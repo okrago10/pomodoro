@@ -111,18 +111,14 @@ describe("timer runtime の駆動", () => {
     expect(runtime.getSnapshot().remainingMs).toBe(SHORT_BREAK_MS);
   });
 
-  it("背面にいる間に時計が飛んでも、前面に戻ったときに飛んだ順に知らせる", async () => {
+  it("背面にいる間に締切を何度越えても、前面に戻ったときは最後の遷移だけを 1 回知らせる", async () => {
     const { runtime, clock, visibility, feedback } = setup();
 
     await runtime.start();
     clock.advance(55 * MINUTE_MS);
     visibility.show();
 
-    expect(feedback.announcements).toEqual([
-      { endedTag: "Work", nextTag: "ShortBreak" },
-      { endedTag: "ShortBreak", nextTag: "Work" },
-      { endedTag: "Work", nextTag: "LongBreak" },
-    ]);
+    expect(feedback.announcements).toEqual([{ endedTag: "Work", nextTag: "LongBreak" }]);
     expect(runtime.getSnapshot().position.phase._tag).toBe("LongBreak");
   });
 

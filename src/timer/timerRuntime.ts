@@ -116,14 +116,15 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
 
   /**
    * engine の操作のあとは必ずここを通す。どの操作の途中で締切を越えても、
-   * たまった遷移をその場で知らせ、次の締切を張り直す。
+   * 最後の遷移だけをその場で知らせ、次の締切を張り直す。背面から戻ったときに
+   * 越えた締切の数だけ音や振動を重ねない。
    */
   function settle(next: TimerSnapshot): void {
-    const transitions = engine.takeTransitions();
+    const latest = engine.takeTransitions().at(-1);
     publish(next);
-    for (const transition of transitions) {
+    if (latest !== undefined) {
       tryFeedback(() => {
-        feedback.announce(transition.from.phase, transition.to.phase);
+        feedback.announce(latest.from.phase, latest.to.phase);
       });
     }
     scheduleDeadline();
