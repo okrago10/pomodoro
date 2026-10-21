@@ -1,9 +1,11 @@
+import type { TimerSettingsPatch } from "../domain/timerSettings.ts";
 import type { PhaseFeedback } from "../notify/phaseFeedback.ts";
 import type { Calendar } from "./calendar.ts";
 import type { Clock } from "./clock.ts";
 import type { DailyWorkStore } from "./dailyWorkStore.ts";
 import { createTimerEngine, type TimerSnapshot } from "./engine.ts";
 import type { Scheduler } from "./scheduler.ts";
+import type { TimerSettingsStore } from "./timerSettingsStore.ts";
 import type { Visibility } from "./visibility.ts";
 
 const TICK_MS = 250;
@@ -17,6 +19,8 @@ export interface TimerRuntimeDeps {
   readonly feedback: PhaseFeedback;
   readonly scheduler: Scheduler;
   readonly visibility: Visibility;
+  /** 作るときに 1 回読み、設定を変えるたびに書く。 */
+  readonly settings: TimerSettingsStore;
 }
 
 /** メソッドは this に依存しないので、取り出してそのまま渡してよい。 */
@@ -27,6 +31,8 @@ export interface TimerRuntime {
   start(): Promise<void>;
   pause(): void;
   reset(): void;
+  /** 範囲外の値は無視する。進行中のフェーズの長さは変えず、次のフェーズから効く。 */
+  updateSettings(patch: TimerSettingsPatch): void;
 }
 
 function sameSnapshot(a: TimerSnapshot, b: TimerSnapshot): boolean {
@@ -35,7 +41,8 @@ function sameSnapshot(a: TimerSnapshot, b: TimerSnapshot): boolean {
     a.remainingMs === b.remainingMs &&
     a.todayWorkMs === b.todayWorkMs &&
     a.position.workNumber === b.position.workNumber &&
-    a.position.phase._tag === b.position.phase._tag
+    a.position.phase._tag === b.position.phase._tag &&
+    a.settings === b.settings
   );
 }
 
@@ -49,7 +56,7 @@ function sameSnapshot(a: TimerSnapshot, b: TimerSnapshot): boolean {
  */
 export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
   const { clock, calendar, store, feedback, scheduler, visibility } = deps;
-  const engine = createTimerEngine(clock, calendar, store);
+  const engine = createTimerEngine(clock, calendar, store, deps.settings.load());
   const listeners = new Set<() => void>();
 
   let current = engine.tick();
@@ -179,6 +186,12 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
         feedback.stopKeepAlive();
       });
       settle(engine.reset());
+    },
+
+    updateSettings(patch) {
+      const next = engine.updateSettings(patch);
+      deps.settings.save(next.settings);
+      settle(next);
     },
   };
 }

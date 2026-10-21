@@ -6,13 +6,20 @@ import { createMemoryDailyWorkStore } from "./dailyWorkStore.ts";
 import type { TimerSnapshot } from "./engine.ts";
 import { createManualScheduler, type ManualScheduler } from "./scheduler.ts";
 import { createTimerRuntime } from "./timerRuntime.ts";
+import { createMemoryTimerSettingsStore, type TimerSettingsStore } from "./timerSettingsStore.ts";
 import { createManualVisibility } from "./visibility.ts";
 
 const MINUTE_MS = 60_000;
 const WORK_MS = 25 * MINUTE_MS;
 const SHORT_BREAK_MS = 5 * MINUTE_MS;
 
-function setup(wrapScheduler: (base: ManualScheduler) => ManualScheduler = (base) => base) {
+function setup({
+  wrapScheduler = (base) => base,
+  settings = createMemoryTimerSettingsStore(),
+}: {
+  wrapScheduler?: (base: ManualScheduler) => ManualScheduler;
+  settings?: TimerSettingsStore;
+} = {}) {
   const clock = new FakeClock(Date.UTC(2026, 7, 14, 1, 0, 0));
   const scheduler = wrapScheduler(createManualScheduler(clock));
   const feedback = createRecordingPhaseFeedback();
@@ -25,6 +32,7 @@ function setup(wrapScheduler: (base: ManualScheduler) => ManualScheduler = (base
     feedback,
     scheduler,
     visibility,
+    settings,
   });
 
   const changes: TimerSnapshot[] = [];
@@ -32,7 +40,17 @@ function setup(wrapScheduler: (base: ManualScheduler) => ManualScheduler = (base
     changes.push(runtime.getSnapshot());
   });
 
-  return { clock, scheduler, feedback, store, visibility, runtime, changes, unsubscribe };
+  return {
+    clock,
+    scheduler,
+    feedback,
+    store,
+    visibility,
+    settings,
+    runtime,
+    changes,
+    unsubscribe,
+  };
 }
 
 describe("timer runtime の駆動", () => {
@@ -148,13 +166,15 @@ describe("timer runtime の駆動", () => {
 
   it("締切が同じ間はそのタイマーを張り替えない", async () => {
     let timeouts = 0;
-    const { runtime, scheduler } = setup((base) => ({
-      ...base,
-      setTimeout(handler, ms) {
-        timeouts++;
-        return base.setTimeout(handler, ms);
-      },
-    }));
+    const { runtime, scheduler } = setup({
+      wrapScheduler: (base) => ({
+        ...base,
+        setTimeout(handler, ms) {
+          timeouts++;
+          return base.setTimeout(handler, ms);
+        },
+      }),
+    });
 
     await runtime.start();
     const afterStart = timeouts;
@@ -240,6 +260,7 @@ describe("timer runtime と通知の順序", () => {
       feedback: broken,
       scheduler,
       visibility: createManualVisibility(),
+      settings: createMemoryTimerSettingsStore(),
     });
     const unsubscribe = runtime.subscribe(() => {});
 
@@ -253,5 +274,66 @@ describe("timer runtime と通知の順序", () => {
     expect(() => {
       unsubscribe();
     }).not.toThrow();
+  });
+});
+
+describe("timer runtime と設定", () => {
+  it("待機中に変えると残り時間がすぐ変わり、1 回だけ知らせて保存する", () => {
+    const { runtime, changes, settings, feedback } = setup();
+
+    runtime.updateSettings({ workMinutes: 50 });
+
+    expect(changes).toHaveLength(1);
+    expect(runtime.getSnapshot().remainingMs).toBe(50 * MINUTE_MS);
+    expect(settings.load().workMinutes).toBe(50);
+    expect(feedback.calls).toEqual([]);
+  });
+
+  it("保存した設定で作り直すと、その長さから始まる", () => {
+    const first = setup();
+    first.runtime.updateSettings({ workMinutes: 50 });
+
+    const { runtime } = setup({ settings: first.settings });
+
+    expect(runtime.getSnapshot().remainingMs).toBe(50 * MINUTE_MS);
+    expect(runtime.getSnapshot().settings.workMinutes).toBe(50);
+  });
+
+  it("残り時間が変わらない変更でも知らせ、何も変わらない変更では知らせない", async () => {
+    const { runtime, changes } = setup();
+    await runtime.start();
+    runtime.pause();
+    changes.length = 0;
+
+    runtime.updateSettings({ shortBreakMinutes: 10 });
+    expect(changes).toHaveLength(1);
+    expect(changes[0]?.remainingMs).toBe(WORK_MS);
+    expect(changes[0]?.settings.shortBreakMinutes).toBe(10);
+
+    runtime.updateSettings({ shortBreakMinutes: 10 });
+    expect(changes).toHaveLength(1);
+  });
+
+  it("動いている間に変えると、今の締切はそのままで次のフェーズから新しい長さを使う", async () => {
+    const { runtime, scheduler, feedback } = setup();
+    await runtime.start();
+
+    runtime.updateSettings({ shortBreakMinutes: 10 });
+    expect(feedback.calls).toEqual(["prepare", "startKeepAlive"]);
+    scheduler.advance(WORK_MS);
+
+    expect(feedback.announcements).toEqual([{ endedTag: "Work", nextTag: "ShortBreak" }]);
+    expect(runtime.getSnapshot().remainingMs).toBe(10 * MINUTE_MS);
+  });
+
+  it("変える前に越えていた締切は、古い長さで進めてその場で知らせる", async () => {
+    const { runtime, clock, feedback } = setup();
+    await runtime.start();
+    clock.advance(WORK_MS + 1000);
+
+    runtime.updateSettings({ shortBreakMinutes: 10 });
+
+    expect(feedback.announcements).toEqual([{ endedTag: "Work", nextTag: "ShortBreak" }]);
+    expect(runtime.getSnapshot().remainingMs).toBe(SHORT_BREAK_MS - 1000);
   });
 });
