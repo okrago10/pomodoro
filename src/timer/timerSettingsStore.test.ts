@@ -15,33 +15,20 @@ function saveRaw(storage: MemoryStorage, value: unknown): void {
 interface Adapter {
   readonly name: string;
   create(): TimerSettingsStore;
-  /** 同じ保存先へ書く 2 つの書き手。メモリ版は同じストアを共有するほかに書き手を作れない。 */
-  createWriters(): readonly [TimerSettingsStore, TimerSettingsStore];
 }
 
 const adapters: readonly Adapter[] = [
   {
     name: "memory",
     create: () => createMemoryTimerSettingsStore(),
-    createWriters() {
-      const store = createMemoryTimerSettingsStore();
-      return [store, store];
-    },
   },
   {
     name: "localStorage",
     create: () => createLocalStorageTimerSettingsStore(new MemoryStorage()),
-    createWriters() {
-      const storage = new MemoryStorage();
-      return [
-        createLocalStorageTimerSettingsStore(storage),
-        createLocalStorageTimerSettingsStore(storage),
-      ];
-    },
   },
 ];
 
-describe.each(adapters)("$name timer settings store", ({ create, createWriters }) => {
+describe.each(adapters)("$name timer settings store", ({ create }) => {
   it("何も変えていなければ初期値を返す", () => {
     expect(create().current()).toEqual(DEFAULT_TIMER_SETTINGS);
   });
@@ -76,9 +63,13 @@ describe.each(adapters)("$name timer settings store", ({ create, createWriters }
     expect(store.update({ workMinutes: 50 })).toBe(before);
     expect(store.update({ workMinutes: 0 })).toBe(before);
   });
+});
 
+describe("localStorage timer settings store", () => {
   it("別の書き手が保存した値を取り込んでから patch を重ねる", () => {
-    const [mine, other] = createWriters();
+    const storage = new MemoryStorage();
+    const mine = createLocalStorageTimerSettingsStore(storage);
+    const other = createLocalStorageTimerSettingsStore(storage);
     mine.update({ longBreakMinutes: 20 });
 
     other.update({ workMinutes: 50 });
@@ -90,9 +81,7 @@ describe.each(adapters)("$name timer settings store", ({ create, createWriters }
       worksBeforeLongBreak: 2,
     });
   });
-});
 
-describe("localStorage timer settings store", () => {
   it("変えた設定を、同じ保存先の新しいストアで読める", () => {
     const storage = new MemoryStorage();
     createLocalStorageTimerSettingsStore(storage).update({
