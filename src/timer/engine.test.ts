@@ -415,9 +415,9 @@ describe("timer engine snapshot identity", () => {
     expect(paused).not.toBe(running);
     expect(paused.remainingMs).toBe(running.remainingMs);
 
-    const resized = engine.updateSettings({ shortBreakMinutes: 10 });
-    expect(resized).not.toBe(paused);
-    expect(resized.remainingMs).toBe(paused.remainingMs);
+    const reconfigured = engine.updateSettings({ shortBreakMinutes: 10 });
+    expect(reconfigured).not.toBe(paused);
+    expect(reconfigured.remainingMs).toBe(paused.remainingMs);
 
     engine.start();
     clock.advance(SECOND);

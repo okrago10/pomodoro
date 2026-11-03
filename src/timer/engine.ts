@@ -112,7 +112,7 @@ export function createTimerEngine(
     todayWorkMs = storedTotal(store, calendar.dayKey(now));
   }
 
-  function toSnapshot(now: number): TimerSnapshot {
+  function buildSnapshot(now: number): TimerSnapshot {
     const common = { status: run.status, todayWorkMs, settings };
     switch (run.status) {
       case "idle":
@@ -128,8 +128,8 @@ export function createTimerEngine(
     }
   }
 
-  function snapshotAt(now: number): TimerSnapshot {
-    const next = toSnapshot(now);
+  function stableSnapshot(now: number): TimerSnapshot {
+    const next = buildSnapshot(now);
     if (lastSnapshot !== null && sameSnapshot(lastSnapshot, next)) {
       return lastSnapshot;
     }
@@ -141,7 +141,7 @@ export function createTimerEngine(
   function tick(): TimerSnapshot {
     const now = clock.now();
     advanceTo(now);
-    return snapshotAt(now);
+    return stableSnapshot(now);
   }
 
   function start(): TimerSnapshot {
@@ -149,11 +149,11 @@ export function createTimerEngine(
     advanceTo(now);
     if (run.status !== "running") {
       // 表示している位置と残り時間から動かす。
-      const { position, remainingMs } = toSnapshot(now);
+      const { position, remainingMs } = buildSnapshot(now);
       run = { status: "running", position, deadlineMs: now + remainingMs };
       cursorMs = now;
     }
-    return snapshotAt(now);
+    return stableSnapshot(now);
   }
 
   function pause(): TimerSnapshot {
@@ -162,7 +162,7 @@ export function createTimerEngine(
     if (run.status === "running") {
       run = { status: "paused", position: run.position, remainingMs: run.deadlineMs - now };
     }
-    return snapshotAt(now);
+    return stableSnapshot(now);
   }
 
   /** 進行中のサイクルは、まだ知らせていない遷移ごと破棄する。記録した作業時間は残す。 */
@@ -171,7 +171,7 @@ export function createTimerEngine(
     advanceTo(now);
     run = { status: "idle" };
     pendingTransitions = [];
-    return snapshotAt(now);
+    return stableSnapshot(now);
   }
 
   /**
@@ -182,7 +182,7 @@ export function createTimerEngine(
     const now = clock.now();
     advanceTo(now);
     settings = parseTimerSettings({ ...settings, ...patch }, settings);
-    return snapshotAt(now);
+    return stableSnapshot(now);
   }
 
   function takeTransitions(): readonly PhaseTransition[] {
