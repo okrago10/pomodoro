@@ -287,7 +287,7 @@ describe("timer runtime と設定", () => {
 
     expect(changes).toHaveLength(1);
     expect(runtime.getSnapshot().remainingMs).toBe(50 * MINUTE_MS);
-    expect(settings.load().workMinutes).toBe(50);
+    expect(settings.current().workMinutes).toBe(50);
     expect(feedback.calls).toEqual([]);
   });
 
@@ -364,7 +364,7 @@ describe("timer runtime と設定", () => {
     first.runtime.updateSettings({ workMinutes: 50 });
     second.runtime.updateSettings({ shortBreakMinutes: 10 });
 
-    expect(first.settings.load()).toMatchObject({ workMinutes: 50, shortBreakMinutes: 10 });
+    expect(first.settings.current()).toMatchObject({ workMinutes: 50, shortBreakMinutes: 10 });
     expect(second.runtime.getSnapshot().settings).toMatchObject({
       workMinutes: 50,
       shortBreakMinutes: 10,

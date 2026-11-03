@@ -2,16 +2,18 @@ import {
   DEFAULT_TIMER_SETTINGS,
   parseTimerSettings,
   type TimerSettings,
+  type TimerSettingsPatch,
 } from "../domain/timerSettings.ts";
 
-/** engine が持つ設定の写し。書くのは TimerRuntime だけ。 */
+/** engine が持つ設定の元。書くのは TimerRuntime だけ。 */
 export interface TimerSettingsStore {
+  current(): TimerSettings;
   /**
-   * このストアが前回読み書きしてから保存先が変わっていれば、その値を fallback に重ねて返す。
-   * 変わっていない・読めないときは fallback をそのまま返す。例外は投げない。
+   * 別の書き手が保存した値があれば取り込み、patch を重ねて保存し、結果を返す。
+   * 範囲外や NaN の項目は今の値のまま残す。何も変わらなければ current() と同じオブジェクトを返す。
+   * 保存に失敗しても手元の値は更新する。例外は投げない。
    */
-  load(fallback?: TimerSettings): TimerSettings;
-  save(settings: TimerSettings): void;
+  update(patch: TimerSettingsPatch): TimerSettings;
 }
 
 export const TIMER_SETTINGS_STORAGE_KEY = "pomodoro:timer-settings";
@@ -19,11 +21,12 @@ export const TIMER_SETTINGS_STORAGE_KEY = "pomodoro:timer-settings";
 export function createMemoryTimerSettingsStore(
   initial: TimerSettings = DEFAULT_TIMER_SETTINGS,
 ): TimerSettingsStore {
-  let saved = initial;
+  let settings = initial;
   return {
-    load: () => saved,
-    save(settings) {
-      saved = settings;
+    current: () => settings,
+    update(patch) {
+      settings = parseTimerSettings({ ...settings, ...patch }, settings);
+      return settings;
     },
   };
 }
@@ -33,27 +36,39 @@ export function createLocalStorageTimerSettingsStore(
 ): TimerSettingsStore {
   /** 最後に読めた、または書けた保存内容。保存に失敗したら古いまま残る。 */
   let lastSeen: string | null = null;
-  return {
-    load(fallback = DEFAULT_TIMER_SETTINGS) {
-      try {
-        const raw = storage.getItem(TIMER_SETTINGS_STORAGE_KEY);
-        if (raw === null || raw === lastSeen) {
-          return fallback;
-        }
-        lastSeen = raw;
-        return parseTimerSettings(JSON.parse(raw), fallback);
-      } catch {
+
+  /** 前回読み書きしてから保存先が変わっていれば、その値を fallback に重ねて返す。 */
+  function readChanged(fallback: TimerSettings): TimerSettings {
+    try {
+      const raw = storage.getItem(TIMER_SETTINGS_STORAGE_KEY);
+      if (raw === null || raw === lastSeen) {
         return fallback;
       }
-    },
-    save(settings) {
-      try {
-        const raw = JSON.stringify(settings);
-        storage.setItem(TIMER_SETTINGS_STORAGE_KEY, raw);
-        lastSeen = raw;
-      } catch {
-        // Persistence must never stop the timer.
-      }
+      lastSeen = raw;
+      return parseTimerSettings(JSON.parse(raw), fallback);
+    } catch {
+      return fallback;
+    }
+  }
+
+  function write(next: TimerSettings): void {
+    try {
+      const raw = JSON.stringify(next);
+      storage.setItem(TIMER_SETTINGS_STORAGE_KEY, raw);
+      lastSeen = raw;
+    } catch {
+      // Persistence must never stop the timer.
+    }
+  }
+
+  let settings = readChanged(DEFAULT_TIMER_SETTINGS);
+  return {
+    current: () => settings,
+    update(patch) {
+      const latest = readChanged(settings);
+      settings = parseTimerSettings({ ...latest, ...patch }, settings);
+      write(settings);
+      return settings;
     },
   };
 }

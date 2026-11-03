@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TIMER_SETTINGS, parseTimerSettings } from "../domain/timerSettings.ts";
+import { DEFAULT_TIMER_SETTINGS } from "../domain/timerSettings.ts";
 import {
   createLocalStorageTimerSettingsStore,
+  createMemoryTimerSettingsStore,
   TIMER_SETTINGS_STORAGE_KEY,
+  type TimerSettingsStore,
 } from "./timerSettingsStore.ts";
 
 class MemoryStorage implements Pick<Storage, "getItem" | "setItem"> {
@@ -17,50 +19,82 @@ class MemoryStorage implements Pick<Storage, "getItem" | "setItem"> {
   }
 }
 
-describe("localStorage timer settings store", () => {
-  it("何も保存していなければ初期値を読む", () => {
-    expect(createLocalStorageTimerSettingsStore(new MemoryStorage()).load()).toEqual({
-      workMinutes: 25,
-      shortBreakMinutes: 5,
-      longBreakMinutes: 15,
-      worksBeforeLongBreak: 2,
+function saveRaw(storage: MemoryStorage, value: unknown): void {
+  storage.setItem(TIMER_SETTINGS_STORAGE_KEY, JSON.stringify(value));
+}
+
+describe.each([
+  ["memory", () => createMemoryTimerSettingsStore()],
+  ["localStorage", () => createLocalStorageTimerSettingsStore(new MemoryStorage())],
+] satisfies [string, () => TimerSettingsStore][])("%s timer settings store", (_, create) => {
+  it("何も変えていなければ初期値を返す", () => {
+    expect(create().current()).toEqual(DEFAULT_TIMER_SETTINGS);
+  });
+
+  it("patch を重ねた結果を返し、current も同じ値になる", () => {
+    const store = create();
+
+    const next = store.update({ workMinutes: 50 });
+
+    expect(next).toEqual({ ...DEFAULT_TIMER_SETTINGS, workMinutes: 50 });
+    expect(store.current()).toBe(next);
+  });
+
+  it("範囲外や NaN の項目は今の値のまま残す", () => {
+    const store = create();
+    store.update({ workMinutes: 50 });
+
+    expect(
+      store.update({ workMinutes: 0, shortBreakMinutes: Number.NaN, longBreakMinutes: 20 }),
+    ).toEqual({
+      ...DEFAULT_TIMER_SETTINGS,
+      workMinutes: 50,
+      longBreakMinutes: 20,
     });
   });
 
-  it("保存した設定を、同じ保存先の新しいストアで読める", () => {
-    const storage = new MemoryStorage();
-    const settings = parseTimerSettings({
-      workMinutes: 50,
-      shortBreakMinutes: 10,
-      longBreakMinutes: 30,
-      worksBeforeLongBreak: 4,
-    });
-    createLocalStorageTimerSettingsStore(storage).save(settings);
+  it("何も変わらなければ同じオブジェクトを返す", () => {
+    const store = create();
+    const before = store.update({ workMinutes: 50 });
 
-    expect(createLocalStorageTimerSettingsStore(storage).load()).toEqual(settings);
-    expect(JSON.parse(storage.getItem(TIMER_SETTINGS_STORAGE_KEY) ?? "null")).toEqual({
+    expect(store.update({})).toBe(before);
+    expect(store.update({ workMinutes: 50 })).toBe(before);
+    expect(store.update({ workMinutes: 0 })).toBe(before);
+  });
+});
+
+describe("localStorage timer settings store", () => {
+  it("変えた設定を、同じ保存先の新しいストアで読める", () => {
+    const storage = new MemoryStorage();
+    createLocalStorageTimerSettingsStore(storage).update({
       workMinutes: 50,
       shortBreakMinutes: 10,
       longBreakMinutes: 30,
       worksBeforeLongBreak: 4,
     });
+
+    const expected = {
+      workMinutes: 50,
+      shortBreakMinutes: 10,
+      longBreakMinutes: 30,
+      worksBeforeLongBreak: 4,
+    };
+    expect(createLocalStorageTimerSettingsStore(storage).current()).toEqual(expected);
+    expect(JSON.parse(storage.getItem(TIMER_SETTINGS_STORAGE_KEY) ?? "null")).toEqual(expected);
   });
 
   it("壊れた保存内容なら初期値を読む", () => {
     const storage = new MemoryStorage();
     storage.setItem(TIMER_SETTINGS_STORAGE_KEY, "{");
 
-    expect(createLocalStorageTimerSettingsStore(storage).load()).toEqual(DEFAULT_TIMER_SETTINGS);
+    expect(createLocalStorageTimerSettingsStore(storage).current()).toEqual(DEFAULT_TIMER_SETTINGS);
   });
 
   it("読めない項目だけを初期値にし、ほかの項目は残す", () => {
     const storage = new MemoryStorage();
-    storage.setItem(
-      TIMER_SETTINGS_STORAGE_KEY,
-      JSON.stringify({ workMinutes: 50, shortBreakMinutes: "10", longBreakMinutes: 999 }),
-    );
+    saveRaw(storage, { workMinutes: 50, shortBreakMinutes: "10", longBreakMinutes: 999 });
 
-    expect(createLocalStorageTimerSettingsStore(storage).load()).toEqual({
+    expect(createLocalStorageTimerSettingsStore(storage).current()).toEqual({
       workMinutes: 50,
       shortBreakMinutes: 5,
       longBreakMinutes: 15,
@@ -68,52 +102,71 @@ describe("localStorage timer settings store", () => {
     });
   });
 
-  it("保存先が例外を投げても、読み込みは初期値を返し、保存は例外を投げない", () => {
-    const broken: Pick<Storage, "getItem" | "setItem"> = {
+  it("保存先が例外を投げても、初期値から始まり、変更は例外を投げずに手元へ残す", () => {
+    const store = createLocalStorageTimerSettingsStore({
       getItem() {
         throw new Error("read failed");
       },
       setItem() {
         throw new Error("write failed");
       },
-    };
-    const store = createLocalStorageTimerSettingsStore(broken);
+    });
 
-    expect(store.load()).toEqual(DEFAULT_TIMER_SETTINGS);
-    expect(() => {
-      store.save(parseTimerSettings({ workMinutes: 50 }));
-    }).not.toThrow();
+    expect(store.current()).toEqual(DEFAULT_TIMER_SETTINGS);
+    expect(store.update({ workMinutes: 50 }).workMinutes).toBe(50);
+    expect(store.current().workMinutes).toBe(50);
   });
 
-  it("自分が読み書きしたあと保存先が変わっていなければ、渡した値を返す", () => {
+  it("自分が書いたあと保存先が変わっていなければ、今の値をそのまま使う", () => {
     const storage = new MemoryStorage();
     const store = createLocalStorageTimerSettingsStore(storage);
-    const current = parseTimerSettings({ workMinutes: 50 });
-    store.save(parseTimerSettings({ workMinutes: 40 }));
+    const current = store.update({ workMinutes: 50 });
 
-    expect(store.load(current)).toBe(current);
+    expect(store.update({})).toBe(current);
   });
 
-  it("別のストアが書いた値は、渡した値に重ねて返す", () => {
+  it("別の書き手が保存した値を取り込んでから patch を重ねる", () => {
     const storage = new MemoryStorage();
     const mine = createLocalStorageTimerSettingsStore(storage);
-    mine.save(DEFAULT_TIMER_SETTINGS);
+    mine.update({ longBreakMinutes: 20 });
 
-    createLocalStorageTimerSettingsStore(storage).save(parseTimerSettings({ workMinutes: 50 }));
+    createLocalStorageTimerSettingsStore(storage).update({ workMinutes: 50 });
 
-    expect(mine.load(DEFAULT_TIMER_SETTINGS).workMinutes).toBe(50);
+    expect(mine.update({ shortBreakMinutes: 10 })).toEqual({
+      workMinutes: 50,
+      shortBreakMinutes: 10,
+      longBreakMinutes: 20,
+      worksBeforeLongBreak: 2,
+    });
   });
 
-  it("書き込みに失敗したあとも、古い保存内容で渡した値を上書きしない", () => {
+  it("範囲外の項目は、別の書き手の値ではなく今の値のまま残す", () => {
+    const storage = new MemoryStorage();
+    const mine = createLocalStorageTimerSettingsStore(storage);
+    mine.update({ workMinutes: 50 });
+
+    saveRaw(storage, { ...DEFAULT_TIMER_SETTINGS, workMinutes: 40, shortBreakMinutes: 7 });
+
+    expect(mine.update({ workMinutes: 0 })).toEqual({
+      ...DEFAULT_TIMER_SETTINGS,
+      workMinutes: 50,
+      shortBreakMinutes: 7,
+    });
+  });
+
+  it("書き込みに失敗したあとも、古い保存内容で手元の変更を戻さない", () => {
     const storage = new MemoryStorage();
     const store = createLocalStorageTimerSettingsStore(storage);
-    store.save(DEFAULT_TIMER_SETTINGS);
+    store.update({});
     storage.setItem = () => {
       throw new Error("quota exceeded");
     };
-    const current = parseTimerSettings({ workMinutes: 50 });
-    store.save(current);
+    store.update({ workMinutes: 50 });
 
-    expect(store.load(current)).toBe(current);
+    expect(store.update({ shortBreakMinutes: 10 })).toEqual({
+      ...DEFAULT_TIMER_SETTINGS,
+      workMinutes: 50,
+      shortBreakMinutes: 10,
+    });
   });
 });
