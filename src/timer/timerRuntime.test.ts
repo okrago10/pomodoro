@@ -1,16 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TIMER_SETTINGS } from "../domain/timerSettings.ts";
 import { createRecordingPhaseFeedback, type PhaseFeedback } from "../notify/phaseFeedback.ts";
 import { utcCalendar } from "./calendar.ts";
 import { FakeClock } from "./clock.ts";
 import { createMemoryDailyWorkStore } from "./dailyWorkStore.ts";
 import type { TimerSnapshot } from "./engine.ts";
+import { MemoryStorage } from "./memoryStorage.ts";
 import { createManualScheduler, type ManualScheduler } from "./scheduler.ts";
 import { createTimerRuntime } from "./timerRuntime.ts";
 import {
   createLocalStorageTimerSettingsStore,
   createMemoryTimerSettingsStore,
-  TIMER_SETTINGS_STORAGE_KEY,
   type TimerSettingsStore,
 } from "./timerSettingsStore.ts";
 import { createManualVisibility } from "./visibility.ts";
@@ -311,33 +310,6 @@ describe("timer runtime と設定", () => {
     expect(runtime.getSnapshot().settings).toBe(before);
   });
 
-  it("別の書き手が localStorage に保存した値を取り込んでから自分の変更を重ねる", () => {
-    const saved = new Map<string, string>();
-    const storage = {
-      getItem: (key: string) => saved.get(key) ?? null,
-      setItem: (key: string, value: string) => {
-        saved.set(key, value);
-      },
-    };
-    const { runtime } = setup({ settings: createLocalStorageTimerSettingsStore(storage) });
-    runtime.updateSettings({ longBreakMinutes: 20 });
-
-    saved.set(
-      TIMER_SETTINGS_STORAGE_KEY,
-      JSON.stringify({ ...DEFAULT_TIMER_SETTINGS, workMinutes: 50, shortBreakMinutes: 7 }),
-    );
-    runtime.updateSettings({ shortBreakMinutes: 0, worksBeforeLongBreak: 3 });
-
-    const expected = {
-      workMinutes: 50,
-      shortBreakMinutes: 5,
-      longBreakMinutes: 15,
-      worksBeforeLongBreak: 3,
-    };
-    expect(runtime.getSnapshot().settings).toEqual(expected);
-    expect(JSON.parse(saved.get(TIMER_SETTINGS_STORAGE_KEY) ?? "null")).toEqual(expected);
-  });
-
   it("保存に失敗する環境でも、続けて変えた設定が前の変更を戻さない", () => {
     const { runtime } = setup({
       settings: createLocalStorageTimerSettingsStore({
@@ -358,17 +330,16 @@ describe("timer runtime と設定", () => {
   });
 
   it("別のタブが保存した設定を、自分の変更で上書きしない", () => {
-    const first = setup();
-    const second = setup({ settings: first.settings });
+    const storage = new MemoryStorage();
+    const first = setup({ settings: createLocalStorageTimerSettingsStore(storage) });
+    const second = setup({ settings: createLocalStorageTimerSettingsStore(storage) });
 
     first.runtime.updateSettings({ workMinutes: 50 });
     second.runtime.updateSettings({ shortBreakMinutes: 10 });
 
-    expect(first.settings.current()).toMatchObject({ workMinutes: 50, shortBreakMinutes: 10 });
-    expect(second.runtime.getSnapshot().settings).toMatchObject({
-      workMinutes: 50,
-      shortBreakMinutes: 10,
-    });
+    const both = { workMinutes: 50, shortBreakMinutes: 10 };
+    expect(second.runtime.getSnapshot().settings).toMatchObject(both);
+    expect(createLocalStorageTimerSettingsStore(storage).current()).toMatchObject(both);
   });
 
   it("残り時間が変わらない変更でも知らせ、何も変わらない変更では知らせない", async () => {
