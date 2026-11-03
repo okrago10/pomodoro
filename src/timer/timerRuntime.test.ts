@@ -78,6 +78,45 @@ describe("timer runtime の駆動", () => {
     expect(runtime.getSnapshot().status).toBe("idle");
   });
 
+  it("状態だけが変わっても購読者に知らせる", async () => {
+    const { runtime, changes } = setup();
+
+    await runtime.start();
+    changes.length = 0;
+    runtime.pause();
+
+    expect(changes).toHaveLength(1);
+    expect(changes[0]?.status).toBe("paused");
+    expect(changes[0]?.remainingMs).toBe(WORK_MS);
+  });
+
+  it("待機中に日付が変わって今日の合計だけが変わっても購読者に知らせる", async () => {
+    const { runtime, clock, scheduler, visibility, changes } = setup();
+
+    await runtime.start();
+    scheduler.advance(MINUTE_MS);
+    runtime.reset();
+    expect(runtime.getSnapshot().todayWorkMs).toBe(MINUTE_MS);
+    clock.advance(24 * 60 * MINUTE_MS);
+    changes.length = 0;
+    visibility.show();
+
+    expect(changes).toHaveLength(1);
+    expect(changes[0]?.status).toBe("idle");
+    expect(changes[0]?.todayWorkMs).toBe(0);
+  });
+
+  it("購読者が受け取る snapshot は、次に知らせるまで同じオブジェクトのまま", async () => {
+    const { runtime, scheduler } = setup();
+
+    await runtime.start();
+    runtime.pause();
+    const paused = runtime.getSnapshot();
+    scheduler.advance(10 * 1000);
+
+    expect(runtime.getSnapshot()).toBe(paused);
+  });
+
   it("購読をやめるとタイマーと前面復帰の監視を手放す", async () => {
     const { runtime, scheduler, visibility, unsubscribe } = setup();
 
