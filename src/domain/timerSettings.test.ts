@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TIMER_SETTINGS, parseTimerSettings } from "./timerSettings.ts";
+import {
+  applyTimerSettingsPatch,
+  DEFAULT_TIMER_SETTINGS,
+  parseTimerSettings,
+} from "./timerSettings.ts";
 
 const DEFAULTS = {
   workMinutes: 25,
@@ -74,5 +78,48 @@ describe("タイマー設定の読み取り", () => {
     expect(parseTimerSettings({ ...fallback }, fallback)).toBe(fallback);
     expect(parseTimerSettings({ workMinutes: Number.NaN }, fallback)).toBe(fallback);
     expect(parseTimerSettings({ workMinutes: 51 }, fallback)).not.toBe(fallback);
+  });
+});
+
+describe("タイマー設定の変更", () => {
+  const current = parseTimerSettings({ workMinutes: 50 });
+
+  it("patch を今の値に重ね、範囲外や NaN の項目は今の値を残す", () => {
+    expect(
+      applyTimerSettingsPatch(current, {
+        shortBreakMinutes: 10,
+        longBreakMinutes: 0,
+        worksBeforeLongBreak: Number.NaN,
+      }),
+    ).toEqual({ ...DEFAULTS, workMinutes: 50, shortBreakMinutes: 10 });
+  });
+
+  it("どの値も変わらなければ今の値と同じ参照を返す", () => {
+    expect(applyTimerSettingsPatch(current, {})).toBe(current);
+    expect(applyTimerSettingsPatch(current, { workMinutes: 50 })).toBe(current);
+    expect(applyTimerSettingsPatch(current, { workMinutes: 91 })).toBe(current);
+    expect(applyTimerSettingsPatch(current, {}, current)).toBe(current);
+  });
+
+  it("別の書き手の値があれば、それに patch を重ねる", () => {
+    const latest = parseTimerSettings({ workMinutes: 40, longBreakMinutes: 20 });
+
+    expect(applyTimerSettingsPatch(current, { shortBreakMinutes: 10 }, latest)).toEqual({
+      ...DEFAULTS,
+      workMinutes: 40,
+      shortBreakMinutes: 10,
+      longBreakMinutes: 20,
+    });
+    expect(applyTimerSettingsPatch(current, {}, latest)).toEqual(latest);
+  });
+
+  it("範囲外の項目は、別の書き手の値ではなく今の値を残す", () => {
+    const latest = parseTimerSettings({ workMinutes: 40, shortBreakMinutes: 7 });
+
+    expect(applyTimerSettingsPatch(current, { workMinutes: 0 }, latest)).toEqual({
+      ...DEFAULTS,
+      workMinutes: 50,
+      shortBreakMinutes: 7,
+    });
   });
 });

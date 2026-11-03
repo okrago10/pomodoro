@@ -1,4 +1,5 @@
 import {
+  applyTimerSettingsPatch,
   DEFAULT_TIMER_SETTINGS,
   parseTimerSettings,
   type TimerSettings,
@@ -25,7 +26,7 @@ export function createMemoryTimerSettingsStore(
   return {
     current: () => settings,
     update(patch) {
-      settings = parseTimerSettings({ ...settings, ...patch }, settings);
+      settings = applyTimerSettingsPatch(settings, patch);
       return settings;
     },
   };
@@ -65,8 +66,7 @@ export function createLocalStorageTimerSettingsStore(
   return {
     current: () => settings,
     update(patch) {
-      const latest = readChanged(settings);
-      settings = parseTimerSettings({ ...latest, ...patch }, settings);
+      settings = applyTimerSettingsPatch(settings, patch, readChanged(settings));
       write(settings);
       return settings;
     },
