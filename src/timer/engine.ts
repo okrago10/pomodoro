@@ -4,6 +4,7 @@ import {
   isWorkPhase,
   nextPhase,
   phaseDurationMs,
+  sameCyclePosition,
   type CyclePosition,
 } from "../domain/cycle.ts";
 import {
@@ -42,8 +43,7 @@ function sameSnapshot(a: TimerSnapshot, b: TimerSnapshot): boolean {
     a.status === b.status &&
     a.remainingMs === b.remainingMs &&
     a.todayWorkMs === b.todayWorkMs &&
-    a.position.workNumber === b.position.workNumber &&
-    a.position.phase._tag === b.position.phase._tag &&
+    sameCyclePosition(a.position, b.position) &&
     a.settings === b.settings
   );
 }

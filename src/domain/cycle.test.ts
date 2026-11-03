@@ -7,6 +7,7 @@ import {
   nextPhase,
   phaseDurationMs,
   PomodoroPhase,
+  sameCyclePosition,
 } from "./cycle.ts";
 import type { CyclePosition } from "./cycle.ts";
 import { DEFAULT_TIMER_SETTINGS, parseTimerSettings, type TimerSettings } from "./timerSettings.ts";
@@ -106,5 +107,34 @@ describe("pomodoro cycle", () => {
     expect(walk(longBreak, parseTimerSettings({ worksBeforeLongBreak: 4 }), 1)).toEqual([
       ["Work", 1],
     ]);
+  });
+});
+
+describe("sameCyclePosition", () => {
+  it("作業の回数とフェーズが同じなら、別のオブジェクトでも等しい", () => {
+    expect(
+      sameCyclePosition(
+        { workNumber: 2, phase: PomodoroPhase.ShortBreak() },
+        { workNumber: 2, phase: PomodoroPhase.ShortBreak() },
+      ),
+    ).toBe(true);
+  });
+
+  it("作業の回数だけが違えば等しくない", () => {
+    expect(
+      sameCyclePosition(
+        { workNumber: 1, phase: PomodoroPhase.Work() },
+        { workNumber: 2, phase: PomodoroPhase.Work() },
+      ),
+    ).toBe(false);
+  });
+
+  it("フェーズだけが違えば等しくない", () => {
+    expect(
+      sameCyclePosition(
+        { workNumber: 4, phase: PomodoroPhase.ShortBreak() },
+        { workNumber: 4, phase: PomodoroPhase.LongBreak() },
+      ),
+    ).toBe(false);
   });
 });
