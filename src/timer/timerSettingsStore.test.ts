@@ -12,10 +12,36 @@ function saveRaw(storage: MemoryStorage, value: unknown): void {
   storage.setItem(TIMER_SETTINGS_STORAGE_KEY, JSON.stringify(value));
 }
 
-describe.each([
-  ["memory", () => createMemoryTimerSettingsStore()],
-  ["localStorage", () => createLocalStorageTimerSettingsStore(new MemoryStorage())],
-] satisfies [string, () => TimerSettingsStore][])("%s timer settings store", (_, create) => {
+interface Adapter {
+  readonly name: string;
+  create(): TimerSettingsStore;
+  /** 同じ保存先へ書く 2 つの書き手。メモリ版は同じストアを共有するほかに書き手を作れない。 */
+  createWriters(): readonly [TimerSettingsStore, TimerSettingsStore];
+}
+
+const adapters: readonly Adapter[] = [
+  {
+    name: "memory",
+    create: () => createMemoryTimerSettingsStore(),
+    createWriters() {
+      const store = createMemoryTimerSettingsStore();
+      return [store, store];
+    },
+  },
+  {
+    name: "localStorage",
+    create: () => createLocalStorageTimerSettingsStore(new MemoryStorage()),
+    createWriters() {
+      const storage = new MemoryStorage();
+      return [
+        createLocalStorageTimerSettingsStore(storage),
+        createLocalStorageTimerSettingsStore(storage),
+      ];
+    },
+  },
+];
+
+describe.each(adapters)("$name timer settings store", ({ create, createWriters }) => {
   it("何も変えていなければ初期値を返す", () => {
     expect(create().current()).toEqual(DEFAULT_TIMER_SETTINGS);
   });
@@ -49,6 +75,20 @@ describe.each([
     expect(store.update({})).toBe(before);
     expect(store.update({ workMinutes: 50 })).toBe(before);
     expect(store.update({ workMinutes: 0 })).toBe(before);
+  });
+
+  it("別の書き手が保存した値を取り込んでから patch を重ねる", () => {
+    const [mine, other] = createWriters();
+    mine.update({ longBreakMinutes: 20 });
+
+    other.update({ workMinutes: 50 });
+
+    expect(mine.update({ shortBreakMinutes: 10 })).toEqual({
+      workMinutes: 50,
+      shortBreakMinutes: 10,
+      longBreakMinutes: 20,
+      worksBeforeLongBreak: 2,
+    });
   });
 });
 
@@ -112,21 +152,6 @@ describe("localStorage timer settings store", () => {
     const current = store.update({ workMinutes: 50 });
 
     expect(store.update({})).toBe(current);
-  });
-
-  it("別の書き手が保存した値を取り込んでから patch を重ねる", () => {
-    const storage = new MemoryStorage();
-    const mine = createLocalStorageTimerSettingsStore(storage);
-    mine.update({ longBreakMinutes: 20 });
-
-    createLocalStorageTimerSettingsStore(storage).update({ workMinutes: 50 });
-
-    expect(mine.update({ shortBreakMinutes: 10 })).toEqual({
-      workMinutes: 50,
-      shortBreakMinutes: 10,
-      longBreakMinutes: 20,
-      worksBeforeLongBreak: 2,
-    });
   });
 
   it("範囲外の項目は、別の書き手の値ではなく今の値のまま残す", () => {
