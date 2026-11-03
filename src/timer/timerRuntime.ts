@@ -35,17 +35,6 @@ export interface TimerRuntime {
   updateSettings(patch: TimerSettingsPatch): void;
 }
 
-function sameSnapshot(a: TimerSnapshot, b: TimerSnapshot): boolean {
-  return (
-    a.status === b.status &&
-    a.remainingMs === b.remainingMs &&
-    a.todayWorkMs === b.todayWorkMs &&
-    a.position.workNumber === b.position.workNumber &&
-    a.position.phase._tag === b.position.phase._tag &&
-    a.settings === b.settings
-  );
-}
-
 /**
  * タイマーの駆動を React の外で持つ。250ms ごとの追いつき、
  * 締切に合わせた 1 回きりの起床、画面が前面に戻ったときの追いつきを
@@ -76,7 +65,7 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
   }
 
   function publish(next: TimerSnapshot): void {
-    if (sameSnapshot(current, next)) {
+    if (next === current) {
       return;
     }
     current = next;

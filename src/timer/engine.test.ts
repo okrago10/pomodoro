@@ -383,3 +383,64 @@ describe("timer engine settings", () => {
     expect(snap.remainingMs).toBe(50 * MINUTE);
   });
 });
+
+describe("timer engine snapshot identity", () => {
+  it("見える値が変わらない間は同じ snapshot を返す", () => {
+    const clock = new FakeClock();
+    const engine = createTimerEngine(clock);
+    const idle = engine.tick();
+    clock.advance(10 * SECOND);
+    expect(engine.tick()).toBe(idle);
+    expect(engine.reset()).toBe(idle);
+    expect(engine.updateSettings({ workMinutes: 25 })).toBe(idle);
+
+    engine.start();
+    clock.advance(10 * SECOND);
+    const paused = engine.pause();
+    clock.advance(10 * MINUTE);
+    expect(engine.tick()).toBe(paused);
+    expect(engine.pause()).toBe(paused);
+  });
+
+  it("どの値が変わっても新しい snapshot を返す", () => {
+    const clock = new FakeClock();
+    const engine = createTimerEngine(clock);
+    const idle = engine.tick();
+
+    const running = engine.start();
+    expect(running).not.toBe(idle);
+    expect(running.remainingMs).toBe(idle.remainingMs);
+
+    const paused = engine.pause();
+    expect(paused).not.toBe(running);
+    expect(paused.remainingMs).toBe(running.remainingMs);
+
+    const resized = engine.updateSettings({ shortBreakMinutes: 10 });
+    expect(resized).not.toBe(paused);
+    expect(resized.remainingMs).toBe(paused.remainingMs);
+
+    engine.start();
+    clock.advance(SECOND);
+    const counted = engine.tick();
+    expect(counted.remainingMs).toBe(25 * MINUTE - SECOND);
+    clock.advance(SECOND);
+    expect(engine.tick()).not.toBe(counted);
+  });
+
+  it("待機中に日付が変わって今日の合計だけが変わっても新しい snapshot を返す", () => {
+    const clock = new FakeClock(Date.UTC(2026, 7, 14, 23, 0, 0));
+    const engine = createTimerEngine(
+      clock,
+      utcCalendar,
+      createMemoryDailyWorkStore({ "2026-08-14": 25 * MINUTE }),
+    );
+    const before = engine.tick();
+    expect(before.todayWorkMs).toBe(25 * MINUTE);
+
+    clock.advance(2 * 60 * MINUTE);
+    const after = engine.tick();
+
+    expect(after).not.toBe(before);
+    expect(after.todayWorkMs).toBe(0);
+  });
+});

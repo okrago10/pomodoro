@@ -36,6 +36,18 @@ export interface TimerSnapshot {
   readonly settings: TimerSettings;
 }
 
+/** TimerSnapshot に項目を足したら比較にも足す。漏れると、その項目だけの変化が購読者に届かない。 */
+function sameSnapshot(a: TimerSnapshot, b: TimerSnapshot): boolean {
+  return (
+    a.status === b.status &&
+    a.remainingMs === b.remainingMs &&
+    a.todayWorkMs === b.todayWorkMs &&
+    a.position.workNumber === b.position.workNumber &&
+    a.position.phase._tag === b.position.phase._tag &&
+    a.settings === b.settings
+  );
+}
+
 interface PhaseTransition {
   readonly from: CyclePosition;
   readonly to: CyclePosition;
@@ -50,6 +62,7 @@ function storedTotal(store: DailyWorkStore, dayKey: string): number {
   }
 }
 
+/** どの操作も、見える値が前回と同じなら前回返した snapshot をそのまま返す。 */
 export function createTimerEngine(
   clock: Clock,
   calendar: Calendar = localCalendar,
@@ -62,6 +75,7 @@ export function createTimerEngine(
   /** 経過をどこまで反映したか。動いている間だけ前に進む。 */
   let cursorMs = clock.now();
   let pendingTransitions: PhaseTransition[] = [];
+  let lastSnapshot: TimerSnapshot | null = null;
 
   /** cursorMs から until までの経過を進める。作業なら日をまたぐぶんを日ごとに分けて記録する。 */
   function accrue(until: number, work: boolean): void {
@@ -114,11 +128,20 @@ export function createTimerEngine(
     }
   }
 
+  function snapshotAt(now: number): TimerSnapshot {
+    const next = toSnapshot(now);
+    if (lastSnapshot !== null && sameSnapshot(lastSnapshot, next)) {
+      return lastSnapshot;
+    }
+    lastSnapshot = next;
+    return next;
+  }
+
   /** now まで追いついた状態を返す。読むだけでも作業時間の記録とフェーズの遷移が進む。 */
   function tick(): TimerSnapshot {
     const now = clock.now();
     advanceTo(now);
-    return toSnapshot(now);
+    return snapshotAt(now);
   }
 
   function start(): TimerSnapshot {
@@ -130,7 +153,7 @@ export function createTimerEngine(
       run = { status: "running", position, deadlineMs: now + remainingMs };
       cursorMs = now;
     }
-    return toSnapshot(now);
+    return snapshotAt(now);
   }
 
   function pause(): TimerSnapshot {
@@ -139,7 +162,7 @@ export function createTimerEngine(
     if (run.status === "running") {
       run = { status: "paused", position: run.position, remainingMs: run.deadlineMs - now };
     }
-    return toSnapshot(now);
+    return snapshotAt(now);
   }
 
   /** 進行中のサイクルは、まだ知らせていない遷移ごと破棄する。記録した作業時間は残す。 */
@@ -148,7 +171,7 @@ export function createTimerEngine(
     advanceTo(now);
     run = { status: "idle" };
     pendingTransitions = [];
-    return toSnapshot(now);
+    return snapshotAt(now);
   }
 
   /**
@@ -159,7 +182,7 @@ export function createTimerEngine(
     const now = clock.now();
     advanceTo(now);
     settings = parseTimerSettings({ ...settings, ...patch }, settings);
-    return toSnapshot(now);
+    return snapshotAt(now);
   }
 
   function takeTransitions(): readonly PhaseTransition[] {
