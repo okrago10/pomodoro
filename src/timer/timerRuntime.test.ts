@@ -4,6 +4,7 @@ import { utcCalendar } from "./calendar.ts";
 import { FakeClock } from "./clock.ts";
 import { createMemoryDailyWorkStore } from "./dailyWorkStore.ts";
 import type { TimerSnapshot } from "./engine.ts";
+import { MemoryStorage } from "./memoryStorage.ts";
 import { createManualScheduler, type ManualScheduler } from "./scheduler.ts";
 import { createTimerRuntime } from "./timerRuntime.ts";
 import {
@@ -324,7 +325,7 @@ describe("timer runtime と設定", () => {
 
     expect(changes).toHaveLength(1);
     expect(runtime.getSnapshot().remainingMs).toBe(50 * MINUTE_MS);
-    expect(settings.load().workMinutes).toBe(50);
+    expect(settings.current().workMinutes).toBe(50);
     expect(feedback.calls).toEqual([]);
   });
 
@@ -336,6 +337,16 @@ describe("timer runtime と設定", () => {
 
     expect(runtime.getSnapshot().remainingMs).toBe(50 * MINUTE_MS);
     expect(runtime.getSnapshot().settings.workMinutes).toBe(50);
+  });
+
+  it("範囲外の値は無視し、何も変わらなければ知らせない", () => {
+    const { runtime, changes } = setup();
+    const before = runtime.getSnapshot().settings;
+
+    runtime.updateSettings({ workMinutes: 0, shortBreakMinutes: Number.NaN });
+
+    expect(changes).toEqual([]);
+    expect(runtime.getSnapshot().settings).toBe(before);
   });
 
   it("保存に失敗する環境でも、続けて変えた設定が前の変更を戻さない", () => {
@@ -358,17 +369,16 @@ describe("timer runtime と設定", () => {
   });
 
   it("別のタブが保存した設定を、自分の変更で上書きしない", () => {
-    const first = setup();
-    const second = setup({ settings: first.settings });
+    const storage = new MemoryStorage();
+    const first = setup({ settings: createLocalStorageTimerSettingsStore(storage) });
+    const second = setup({ settings: createLocalStorageTimerSettingsStore(storage) });
 
     first.runtime.updateSettings({ workMinutes: 50 });
     second.runtime.updateSettings({ shortBreakMinutes: 10 });
 
-    expect(first.settings.load()).toMatchObject({ workMinutes: 50, shortBreakMinutes: 10 });
-    expect(second.runtime.getSnapshot().settings).toMatchObject({
-      workMinutes: 50,
-      shortBreakMinutes: 10,
-    });
+    const both = { workMinutes: 50, shortBreakMinutes: 10 };
+    expect(second.runtime.getSnapshot().settings).toMatchObject(both);
+    expect(createLocalStorageTimerSettingsStore(storage).current()).toMatchObject(both);
   });
 
   it("残り時間が変わらない変更でも知らせ、何も変わらない変更では知らせない", async () => {

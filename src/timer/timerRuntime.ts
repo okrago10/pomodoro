@@ -19,7 +19,6 @@ export interface TimerRuntimeDeps {
   readonly feedback: PhaseFeedback;
   readonly scheduler: Scheduler;
   readonly visibility: Visibility;
-  /** 作るときと設定を変えるたびに読み、変えるたびに書く。 */
   readonly settings: TimerSettingsStore;
 }
 
@@ -45,7 +44,7 @@ export interface TimerRuntime {
  */
 export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
   const { clock, calendar, store, feedback, scheduler, visibility } = deps;
-  const engine = createTimerEngine(clock, calendar, store, deps.settings.load());
+  const engine = createTimerEngine(clock, calendar, store, deps.settings.current());
   const listeners = new Set<() => void>();
 
   let current = engine.tick();
@@ -179,10 +178,7 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
     },
 
     updateSettings(patch) {
-      // 別のタブが保存した値があれば先に取り込む。手元の古い値で上書きしない。
-      const next = engine.updateSettings({ ...deps.settings.load(current.settings), ...patch });
-      deps.settings.save(next.settings);
-      settle(next);
+      settle(engine.setSettings(deps.settings.update(patch)));
     },
   };
 }
