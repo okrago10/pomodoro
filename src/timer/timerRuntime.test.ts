@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_TIMER_SETTINGS } from "../domain/timerSettings.ts";
 import { createRecordingPhaseFeedback, type PhaseFeedback } from "../notify/phaseFeedback.ts";
 import { utcCalendar } from "./calendar.ts";
 import { FakeClock } from "./clock.ts";
@@ -9,6 +10,7 @@ import { createTimerRuntime } from "./timerRuntime.ts";
 import {
   createLocalStorageTimerSettingsStore,
   createMemoryTimerSettingsStore,
+  TIMER_SETTINGS_STORAGE_KEY,
   type TimerSettingsStore,
 } from "./timerSettingsStore.ts";
 import { createManualVisibility } from "./visibility.ts";
@@ -297,6 +299,43 @@ describe("timer runtime と設定", () => {
 
     expect(runtime.getSnapshot().remainingMs).toBe(50 * MINUTE_MS);
     expect(runtime.getSnapshot().settings.workMinutes).toBe(50);
+  });
+
+  it("範囲外の値は無視し、何も変わらなければ知らせない", () => {
+    const { runtime, changes } = setup();
+    const before = runtime.getSnapshot().settings;
+
+    runtime.updateSettings({ workMinutes: 0, shortBreakMinutes: Number.NaN });
+
+    expect(changes).toEqual([]);
+    expect(runtime.getSnapshot().settings).toBe(before);
+  });
+
+  it("別の書き手が localStorage に保存した値を取り込んでから自分の変更を重ねる", () => {
+    const saved = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => saved.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        saved.set(key, value);
+      },
+    };
+    const { runtime } = setup({ settings: createLocalStorageTimerSettingsStore(storage) });
+    runtime.updateSettings({ longBreakMinutes: 20 });
+
+    saved.set(
+      TIMER_SETTINGS_STORAGE_KEY,
+      JSON.stringify({ ...DEFAULT_TIMER_SETTINGS, workMinutes: 50, shortBreakMinutes: 7 }),
+    );
+    runtime.updateSettings({ shortBreakMinutes: 0, worksBeforeLongBreak: 3 });
+
+    const expected = {
+      workMinutes: 50,
+      shortBreakMinutes: 5,
+      longBreakMinutes: 15,
+      worksBeforeLongBreak: 3,
+    };
+    expect(runtime.getSnapshot().settings).toEqual(expected);
+    expect(JSON.parse(saved.get(TIMER_SETTINGS_STORAGE_KEY) ?? "null")).toEqual(expected);
   });
 
   it("保存に失敗する環境でも、続けて変えた設定が前の変更を戻さない", () => {
