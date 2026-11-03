@@ -18,6 +18,11 @@ export interface CyclePosition {
   readonly phase: PomodoroPhase;
 }
 
+/** CyclePosition に項目を足したらここにも足す。 */
+export function sameCyclePosition(a: CyclePosition, b: CyclePosition): boolean {
+  return a.workNumber === b.workNumber && a.phase._tag === b.phase._tag;
+}
+
 export const initialCyclePosition: CyclePosition = {
   workNumber: 1,
   phase: PomodoroPhase.Work(),
