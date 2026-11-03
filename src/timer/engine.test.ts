@@ -4,7 +4,7 @@ import { FakeClock } from "./clock.ts";
 import { createMemoryDailyWorkStore, type DailyWorkStore } from "./dailyWorkStore.ts";
 import { phaseDurationMs } from "../domain/cycle.ts";
 import { DEFAULT_TIMER_SETTINGS, parseTimerSettings } from "../domain/timerSettings.ts";
-import { createTimerEngine } from "./engine.ts";
+import { createTimerEngine, type TimerSnapshot } from "./engine.ts";
 
 const SECOND = 1_000;
 const MINUTE = 60_000;
@@ -442,5 +442,52 @@ describe("timer engine snapshot identity", () => {
 
     expect(after).not.toBe(before);
     expect(after.todayWorkMs).toBe(0);
+  });
+
+  describe("位置だけが変わる", () => {
+    /** 今日の合計を 0 のまま止め、位置以外の値をそろえられるようにする。 */
+    const nonRecordingStore: DailyWorkStore = { get: () => 0, add: () => {} };
+
+    function startedEngine() {
+      const clock = new FakeClock();
+      const engine = createTimerEngine(clock, utcCalendar, nonRecordingStore);
+      engine.start();
+      return { clock, engine };
+    }
+
+    function expectOnlyPositionChanged(before: TimerSnapshot, after: TimerSnapshot): void {
+      expect(after).not.toBe(before);
+      expect(after.status).toBe(before.status);
+      expect(after.remainingMs).toBe(before.remainingMs);
+      expect(after.todayWorkMs).toBe(before.todayWorkMs);
+      expect(after.settings).toBe(before.settings);
+    }
+
+    it("フェーズだけが変わっても新しい snapshot を返す", () => {
+      const { clock, engine } = startedEngine();
+      clock.advance(20 * MINUTE);
+      const work = engine.tick();
+      clock.advance(5 * MINUTE);
+      const shortBreak = engine.tick();
+
+      expectOnlyPositionChanged(work, shortBreak);
+      expect([work.position.phase._tag, work.position.workNumber]).toEqual(["Work", 1]);
+      expect([shortBreak.position.phase._tag, shortBreak.position.workNumber]).toEqual([
+        "ShortBreak",
+        1,
+      ]);
+    });
+
+    it("作業の回数だけが変わっても新しい snapshot を返す", () => {
+      const { clock, engine } = startedEngine();
+      clock.advance(10 * SECOND);
+      const first = engine.tick();
+      clock.advance(25 * MINUTE + 5 * MINUTE);
+      const second = engine.tick();
+
+      expectOnlyPositionChanged(first, second);
+      expect([first.position.phase._tag, first.position.workNumber]).toEqual(["Work", 1]);
+      expect([second.position.phase._tag, second.position.workNumber]).toEqual(["Work", 2]);
+    });
   });
 });
