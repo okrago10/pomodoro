@@ -67,13 +67,13 @@ export function parseTimerSettings(
 }
 
 /**
- * 設定の変更。patch を latest に重ね、範囲外や NaN の項目は current の値を残す。
- * latest は別の書き手が保存した値で、無ければ current。どの値も current と同じなら current そのものを返す。
+ * 設定の変更。patch を base に重ね、範囲外や NaN の項目は current の値を残す。
+ * base は別の書き手が保存した値で、無ければ current。どの値も current と同じなら current そのものを返す。
  */
 export function applyTimerSettingsPatch(
   current: TimerSettings,
   patch: TimerSettingsPatch,
-  latest: TimerSettings = current,
+  base: TimerSettings = current,
 ): TimerSettings {
-  return parseTimerSettings({ ...latest, ...patch }, current);
+  return parseTimerSettings({ ...base, ...patch }, current);
 }
