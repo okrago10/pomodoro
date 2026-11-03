@@ -6,18 +6,7 @@ import {
   TIMER_SETTINGS_STORAGE_KEY,
   type TimerSettingsStore,
 } from "./timerSettingsStore.ts";
-
-class MemoryStorage implements Pick<Storage, "getItem" | "setItem"> {
-  #data = new Map<string, string>();
-
-  getItem(key: string): string | null {
-    return this.#data.get(key) ?? null;
-  }
-
-  setItem(key: string, value: string): void {
-    this.#data.set(key, value);
-  }
-}
+import { MemoryStorage } from "./memoryStorage.ts";
 
 function saveRaw(storage: MemoryStorage, value: unknown): void {
   storage.setItem(TIMER_SETTINGS_STORAGE_KEY, JSON.stringify(value));
