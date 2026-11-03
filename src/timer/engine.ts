@@ -6,12 +6,7 @@ import {
   phaseDurationMs,
   type CyclePosition,
 } from "../domain/cycle.ts";
-import {
-  DEFAULT_TIMER_SETTINGS,
-  parseTimerSettings,
-  type TimerSettings,
-  type TimerSettingsPatch,
-} from "../domain/timerSettings.ts";
+import { DEFAULT_TIMER_SETTINGS, type TimerSettings } from "../domain/timerSettings.ts";
 import { localCalendar, type Calendar } from "./calendar.ts";
 import type { Clock } from "./clock.ts";
 import { createMemoryDailyWorkStore, type DailyWorkStore } from "./dailyWorkStore.ts";
@@ -153,12 +148,12 @@ export function createTimerEngine(
 
   /**
    * 先に古い設定で now まで追いついてから差し替える。進行中のフェーズは締切も止めた残りも
-   * そのままで、新しい設定は次のフェーズから効く。範囲外や NaN の値は無視する。
+   * そのままで、新しい設定は次のフェーズから効く。
    */
-  function updateSettings(patch: TimerSettingsPatch): TimerSnapshot {
+  function setSettings(next: TimerSettings): TimerSnapshot {
     const now = clock.now();
     advanceTo(now);
-    settings = parseTimerSettings({ ...settings, ...patch }, settings);
+    settings = next;
     return toSnapshot(now);
   }
 
@@ -172,5 +167,5 @@ export function createTimerEngine(
     return run.status === "running" ? run.deadlineMs : null;
   }
 
-  return { start, pause, reset, tick, updateSettings, takeTransitions, runningDeadlineMs };
+  return { start, pause, reset, tick, setSettings, takeTransitions, runningDeadlineMs };
 }

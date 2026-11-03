@@ -189,7 +189,7 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
     },
 
     updateSettings(patch) {
-      settle(engine.updateSettings(deps.settings.update(patch)));
+      settle(engine.setSettings(deps.settings.update(patch)));
     },
   };
 }
