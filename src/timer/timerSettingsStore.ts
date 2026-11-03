@@ -38,8 +38,11 @@ export function createLocalStorageTimerSettingsStore(
   /** 最後に読めた、または書けた保存内容。保存に失敗したら古いまま残る。 */
   let lastSeen: string | null = null;
 
-  /** 前回読み書きしてから保存先が変わっていれば、その値を fallback に重ねて返す。 */
-  function readChanged(fallback: TimerSettings): TimerSettings {
+  /**
+   * 前回読み書きしてから保存先が変わっていれば、その値を fallback に重ねて返す。
+   * 変わっていなければ、手元の fallback がいちばん新しい。
+   */
+  function readLatest(fallback: TimerSettings): TimerSettings {
     try {
       const raw = storage.getItem(TIMER_SETTINGS_STORAGE_KEY);
       if (raw === null || raw === lastSeen) {
@@ -62,11 +65,11 @@ export function createLocalStorageTimerSettingsStore(
     }
   }
 
-  let settings = readChanged(DEFAULT_TIMER_SETTINGS);
+  let settings = readLatest(DEFAULT_TIMER_SETTINGS);
   return {
     current: () => settings,
     update(patch) {
-      settings = applyTimerSettingsPatch(settings, patch, readChanged(settings));
+      settings = applyTimerSettingsPatch(settings, patch, readLatest(settings));
       write(settings);
       return settings;
     },
