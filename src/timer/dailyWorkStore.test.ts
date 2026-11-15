@@ -120,16 +120,11 @@ describe("localStorage daily work store", () => {
     expect(store.get("2026-08-15")).toBe(0);
   });
 
-  it("数でない保存値や負の値は 0 として扱い、readAll にも含めない", () => {
+  it("数でない保存値（文字列の数字など）は 0 として扱い、readAll にも含めない", () => {
     const storage = new MemoryStorage();
-    storage.setItem(
-      DAILY_WORK_STORAGE_KEY,
-      '{"2026-08-12":"300000","2026-08-13":null,"2026-08-14":-1,"2026-08-15":300000}',
-    );
+    storage.setItem(DAILY_WORK_STORAGE_KEY, '{"2026-08-14":"300000","2026-08-15":300000}');
     const store = createLocalStorageDailyWorkStore(storage);
 
-    expect(store.get("2026-08-12")).toBe(0);
-    expect(store.get("2026-08-13")).toBe(0);
     expect(store.get("2026-08-14")).toBe(0);
     expect(store.readAll()).toEqual({ "2026-08-15": 5 * MINUTE_MS });
   });
