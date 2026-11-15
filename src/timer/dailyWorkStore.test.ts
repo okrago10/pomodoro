@@ -12,7 +12,7 @@ const MINUTE_MS = 60_000;
 
 /**
  * 保存済みの値から組み立てる。壊れた値の扱いも同じ入口で確かめる。
- * localStorage 版は JSON を通すので、NaN は null として保存される。
+ * localStorage 版は JSON を通すので、NaN と Infinity は null として保存される。
  */
 const adapters: ReadonlyArray<
   readonly [
@@ -64,11 +64,13 @@ describe.each(adapters)("%s daily work store の契約", (_name, create) => {
 
   it("保存済みの壊れた値は 0 として扱い、readAll にも含めない", () => {
     const store = create({
+      "2026-08-12": Number.POSITIVE_INFINITY,
       "2026-08-13": -MINUTE_MS,
       "2026-08-14": Number.NaN,
       "2026-08-15": 5 * MINUTE_MS,
     });
 
+    expect(store.get("2026-08-12")).toBe(0);
     expect(store.get("2026-08-13")).toBe(0);
     expect(store.get("2026-08-14")).toBe(0);
     expect(store.readAll()).toEqual({ "2026-08-15": 5 * MINUTE_MS });
