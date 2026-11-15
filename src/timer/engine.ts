@@ -48,15 +48,6 @@ interface PhaseTransition {
   readonly to: CyclePosition;
 }
 
-function storedTotal(store: DailyWorkStore, dayKey: string): number {
-  try {
-    const value = store.get(dayKey);
-    return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
-  } catch {
-    return 0;
-  }
-}
-
 /** どの操作も、見える値が前回と同じなら前回返した snapshot をそのまま返す。 */
 export function createTimerEngine(
   clock: Clock,
@@ -66,22 +57,21 @@ export function createTimerEngine(
 ) {
   let settings = initialSettings;
   let run: RunState = { status: "idle" };
-  let todayWorkMs = storedTotal(store, calendar.dayKey(clock.now()));
+  let todayWorkMs = store.get(calendar.dayKey(clock.now()));
   /** 経過をどこまで反映したか。動いている間だけ前に進む。 */
   let cursorMs = clock.now();
   let pendingTransitions: PhaseTransition[] = [];
   let lastSnapshot: TimerSnapshot | null = null;
 
-  /** cursorMs から until までの経過を進める。作業なら日をまたぐぶんを日ごとに分けて記録する。 */
+  /**
+   * cursorMs から until までの経過を進める。作業なら日をまたぐぶんを日ごとに分けて記録する。
+   * 保存に失敗しても store が吸収するので、ここでは扱わない。
+   */
   function accrue(until: number, work: boolean): void {
     while (cursorMs < until) {
       const sliceEnd = Math.min(until, calendar.startOfNextDay(cursorMs));
       if (work) {
-        try {
-          store.add(calendar.dayKey(cursorMs), sliceEnd - cursorMs);
-        } catch {
-          // Persistence failures must not stop the timer.
-        }
+        store.add(calendar.dayKey(cursorMs), sliceEnd - cursorMs);
       }
       cursorMs = sliceEnd;
     }
@@ -104,7 +94,7 @@ export function createTimerEngine(
       accrue(now, isWorkPhase(position.phase));
       run = { status: "running", position, deadlineMs };
     }
-    todayWorkMs = storedTotal(store, calendar.dayKey(now));
+    todayWorkMs = store.get(calendar.dayKey(now));
   }
 
   function buildSnapshot(now: number): TimerSnapshot {

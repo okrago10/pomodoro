@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { utcCalendar } from "./calendar.ts";
 import { FakeClock } from "./clock.ts";
-import { createMemoryDailyWorkStore, type DailyWorkStore } from "./dailyWorkStore.ts";
+import {
+  createLocalStorageDailyWorkStore,
+  createMemoryDailyWorkStore,
+  type DailyWorkStore,
+} from "./dailyWorkStore.ts";
 import { phaseDurationMs } from "../domain/cycle.ts";
 import { DEFAULT_TIMER_SETTINGS, parseTimerSettings } from "../domain/timerSettings.ts";
 import { createTimerEngine, type TimerSnapshot } from "./engine.ts";
+import { failingStorage } from "./memoryStorage.ts";
 
 const SECOND = 1_000;
 const MINUTE = 60_000;
@@ -241,17 +246,13 @@ describe("timer engine", () => {
     expect(second.tick().status).toBe("idle");
   });
 
-  it("keeps running when persistence throws", () => {
-    const store: DailyWorkStore = {
-      get() {
-        throw new Error("read failed");
-      },
-      add() {
-        throw new Error("write failed");
-      },
-    };
+  it("localStorage の読み書きが失敗しても、ストアが吸収してタイマーは進む", () => {
     const clock = new FakeClock();
-    const engine = createTimerEngine(clock, utcCalendar, store);
+    const engine = createTimerEngine(
+      clock,
+      utcCalendar,
+      createLocalStorageDailyWorkStore(failingStorage),
+    );
     engine.start();
     clock.advance(3 * SECOND);
     const snap = engine.tick();

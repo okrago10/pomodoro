@@ -54,7 +54,7 @@ export function createTimerRuntime(deps: TimerRuntimeDeps): TimerRuntime {
   /** deadlineId のタイマーが狙っている締切。 */
   let scheduledFor: number | null = null;
 
-  /** 知らせられなくてもタイマーは止めない。engine の永続化と同じ扱い。 */
+  /** 知らせられなくてもタイマーは止めない。 */
   function tryFeedback(run: () => void): void {
     try {
       run();
