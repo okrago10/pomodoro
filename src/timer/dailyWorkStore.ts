@@ -20,13 +20,13 @@ export interface DailyWorkTotals {
 
 export const DAILY_WORK_STORAGE_KEY = "pomodoro:daily-work-ms";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isTotalsRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /** 0 以上の有限数の値だけを残す。どちらのアダプターも、外から受け取った値はここを通す。 */
-function validTotals(input: unknown): Record<string, number> {
-  if (!isRecord(input)) {
+function parseTotals(input: unknown): Record<string, number> {
+  if (!isTotalsRecord(input)) {
     return {};
   }
   const totals: Record<string, number> = {};
@@ -43,14 +43,19 @@ function totalOf(totals: Readonly<Record<string, number>>, dayKey: string): numb
   return Object.hasOwn(totals, dayKey) ? totals[dayKey] : 0;
 }
 
-function isRecordableDelta(deltaMs: number): boolean {
-  return Number.isFinite(deltaMs) && deltaMs > 0;
+/** 記録できる差分なら totals に足して true を返す。0 以下や有限でない差分は足さない。 */
+function addTo(totals: Record<string, number>, dayKey: string, deltaMs: number): boolean {
+  if (!Number.isFinite(deltaMs) || deltaMs <= 0) {
+    return false;
+  }
+  totals[dayKey] = totalOf(totals, dayKey) + deltaMs;
+  return true;
 }
 
 export function createMemoryDailyWorkStore(
   initial: Readonly<Record<string, number>> = {},
 ): DailyWorkStore & DailyWorkTotals {
-  const totals = validTotals(initial);
+  const totals = parseTotals(initial);
   return {
     get(dayKey) {
       return totalOf(totals, dayKey);
@@ -59,10 +64,7 @@ export function createMemoryDailyWorkStore(
       return { ...totals };
     },
     add(dayKey, deltaMs) {
-      if (!isRecordableDelta(deltaMs)) {
-        return;
-      }
-      totals[dayKey] = totalOf(totals, dayKey) + deltaMs;
+      addTo(totals, dayKey, deltaMs);
     },
   };
 }
@@ -76,7 +78,7 @@ export function createLocalStorageDailyWorkStore(
       if (!raw) {
         return {};
       }
-      return validTotals(JSON.parse(raw));
+      return parseTotals(JSON.parse(raw));
     } catch {
       return {};
     }
@@ -96,12 +98,10 @@ export function createLocalStorageDailyWorkStore(
     },
     readAll: read,
     add(dayKey, deltaMs) {
-      if (!isRecordableDelta(deltaMs)) {
-        return;
-      }
       const totals = read();
-      totals[dayKey] = totalOf(totals, dayKey) + deltaMs;
-      write(totals);
+      if (addTo(totals, dayKey, deltaMs)) {
+        write(totals);
+      }
     },
   };
 }

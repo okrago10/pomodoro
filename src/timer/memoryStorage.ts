@@ -13,3 +13,13 @@ export class MemoryStorage implements Pick<Storage, "getItem" | "setItem"> {
     this.#data.set(key, value);
   }
 }
+
+/** テスト用。読み書きのどちらも例外を投げる保存先（プライベートブラウズや容量超過を想定）。 */
+export const failingStorage: Pick<Storage, "getItem" | "setItem"> = {
+  getItem() {
+    throw new Error("storage unavailable");
+  },
+  setItem() {
+    throw new Error("storage unavailable");
+  },
+};

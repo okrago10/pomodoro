@@ -9,6 +9,7 @@ import {
 import { phaseDurationMs } from "../domain/cycle.ts";
 import { DEFAULT_TIMER_SETTINGS, parseTimerSettings } from "../domain/timerSettings.ts";
 import { createTimerEngine, type TimerSnapshot } from "./engine.ts";
+import { failingStorage } from "./memoryStorage.ts";
 
 const SECOND = 1_000;
 const MINUTE = 60_000;
@@ -245,17 +246,13 @@ describe("timer engine", () => {
     expect(second.tick().status).toBe("idle");
   });
 
-  it("keeps running when persistence throws", () => {
-    const storage = {
-      getItem(): string | null {
-        throw new Error("read failed");
-      },
-      setItem(): void {
-        throw new Error("write failed");
-      },
-    };
+  it("localStorage の読み書きが失敗しても、ストアが吸収してタイマーは進む", () => {
     const clock = new FakeClock();
-    const engine = createTimerEngine(clock, utcCalendar, createLocalStorageDailyWorkStore(storage));
+    const engine = createTimerEngine(
+      clock,
+      utcCalendar,
+      createLocalStorageDailyWorkStore(failingStorage),
+    );
     engine.start();
     clock.advance(3 * SECOND);
     const snap = engine.tick();

@@ -6,11 +6,14 @@ import {
   type DailyWorkStore,
   type DailyWorkTotals,
 } from "./dailyWorkStore.ts";
-import { MemoryStorage } from "./memoryStorage.ts";
+import { failingStorage, MemoryStorage } from "./memoryStorage.ts";
 
 const MINUTE_MS = 60_000;
 
-/** 保存済みの値から組み立てる。壊れた値の扱いも同じ入口で確かめる。 */
+/**
+ * 保存済みの値から組み立てる。壊れた値の扱いも同じ入口で確かめる。
+ * localStorage 版は JSON を通すので、NaN は null として保存される。
+ */
 const adapters: ReadonlyArray<
   readonly [
     name: string,
@@ -117,16 +120,22 @@ describe("localStorage daily work store", () => {
     expect(store.get("2026-08-15")).toBe(0);
   });
 
-  it("読み出しに失敗しても例外を投げず、記録は 0 として扱う", () => {
-    const storage = {
-      getItem(): string | null {
-        throw new Error("denied");
-      },
-      setItem(): void {
-        throw new Error("denied");
-      },
-    };
+  it("数でない保存値や負の値は 0 として扱い、readAll にも含めない", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      DAILY_WORK_STORAGE_KEY,
+      '{"2026-08-12":"300000","2026-08-13":null,"2026-08-14":-1,"2026-08-15":300000}',
+    );
     const store = createLocalStorageDailyWorkStore(storage);
+
+    expect(store.get("2026-08-12")).toBe(0);
+    expect(store.get("2026-08-13")).toBe(0);
+    expect(store.get("2026-08-14")).toBe(0);
+    expect(store.readAll()).toEqual({ "2026-08-15": 5 * MINUTE_MS });
+  });
+
+  it("読み出しに失敗しても例外を投げず、記録は 0 として扱う", () => {
+    const store = createLocalStorageDailyWorkStore(failingStorage);
 
     expect(store.get("2026-08-15")).toBe(0);
     expect(store.readAll()).toEqual({});
